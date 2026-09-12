@@ -1,0 +1,10 @@
+[Unit]
+Description=Observe private Zavliq staging every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00 UTC
+Persistent=true
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

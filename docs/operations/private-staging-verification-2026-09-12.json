@@ -1,0 +1,148 @@
+{
+  "recorded_at": "2026-09-12T03:21:19.696620+00:00",
+  "environment": "private AWS staging; same-host isolated recovery clone",
+  "deployed_application_commit": "5fd35f709cf117fb448c23babe2d7583a1d4c197",
+  "hosting": {
+    "lightsail_bundle": "medium_3_0",
+    "region": "us-east-1",
+    "vcpu": 2,
+    "ram_gib": 4,
+    "application_ports_public": false,
+    "instance_resize_performed": false
+  },
+  "monitor": {
+    "managed_resources_added": 10,
+    "lambda_source_sha256": "740e753df401e12d6312e0dbb5f105d418a63e401b9ad6ec022c759e0ca45525",
+    "live_invocation": {
+      "status_code": 200,
+      "function_error": null,
+      "result": {
+        "checked_at": 1789182809,
+        "HostHealthy": 1,
+        "CapabilityValid": 1,
+        "BackupFresh": 1
+      }
+    },
+    "alarm_states": [
+      {
+        "name": "zavliq-private-stage-BackupFresh",
+        "state": "OK",
+        "actions_enabled": true
+      },
+      {
+        "name": "zavliq-private-stage-CapabilityValid",
+        "state": "OK",
+        "actions_enabled": true
+      },
+      {
+        "name": "zavliq-private-stage-HostHealthy",
+        "state": "OK",
+        "actions_enabled": true
+      }
+    ],
+    "alarm_actions_match_existing_sns_topic": true,
+    "email_subscription_confirmed": false,
+    "notification_delivery_verified": false,
+    "health_interval_seconds": 60,
+    "cloud_probe_interval_seconds": 300
+  },
+  "capability": {
+    "issued_at": 1789182696,
+    "expires_at": 1789355496,
+    "window_hours": 48,
+    "health_key": "status/health.json",
+    "health_maximum_bytes": 65536,
+    "backup_keys": [
+      "daily/zavliq-20260912T000000Z.tar.age",
+      "daily/zavliq-20260912T120000Z.tar.age",
+      "daily/zavliq-20260913T000000Z.tar.age",
+      "daily/zavliq-20260913T120000Z.tar.age",
+      "daily/zavliq-20260914T000000Z.tar.age"
+    ],
+    "backup_maximum_bytes_each": 268435456,
+    "maximum_distinct_backup_bytes": 1342177280,
+    "host_can_list_or_read_bucket": false,
+    "issued_at_utc": "2026-09-12T03:11:36+00:00",
+    "expires_at_utc": "2026-09-14T03:11:36+00:00"
+  },
+  "backup": {
+    "key": "daily/zavliq-20260912T000000Z.tar.age",
+    "encrypted_bytes": 10478264,
+    "server_side_encryption": "AES256",
+    "source_created_at": 1789182720,
+    "downloaded_sha256_matches_metadata": true,
+    "age_header": true,
+    "writer_pause_seconds": 2.287,
+    "snapshot_elapsed_seconds": 2.428,
+    "primary_recovery_key_remained_off_server": true
+  },
+  "restore": {
+    "restore_services_stopped": true,
+    "one_use_key_removed": true,
+    "one_use_archive_removed": true,
+    "primary_key_ever_installed": false,
+    "soak_marker_exists": false,
+    "health_journal": {
+      "samples": 9,
+      "failed_samples": 1
+    },
+    "restore": {
+      "operation": "restore",
+      "services_healthy": true,
+      "elapsed_seconds": 34.54
+    },
+    "original_http_status": 200,
+    "durable_event_counts": {
+      "zavliq-load": {
+        "requested": 1800,
+        "durable_events": 1800,
+        "durable_json": 1800,
+        "nonoutlier": 1800
+      },
+      "zavliq-aws-restore-20260912": {
+        "requested": 1800,
+        "durable_events": 1800,
+        "durable_json": 1800,
+        "nonoutlier": 1800
+      }
+    },
+    "client_verification": {
+      "scope": "AWS private standard-message restore; same host, isolated new volumes and namespace-compatible origin",
+      "checks": {
+        "original_two_user_and_device_ids": true,
+        "historical_event_readable_by_original_recipient": true,
+        "new_message_synced_by_original_recipient": true
+      },
+      "new_message_sync_seconds": 0.734,
+      "client_crypto_gate_exercised": false,
+      "reason": "The AWS diagnostic fixture contains standard DMs; E2EE restore remains separately verified locally and must repeat on final deployment."
+    },
+    "fresh_project": "zavliq-aws-restore-20260912",
+    "source_stack_preserved": true,
+    "end_to_end_rto_measured": false,
+    "timing_scope": "34.54 seconds covers restore.sh execution to service health; excludes transfer/envelope preparation and host provisioning."
+  },
+  "soak": {
+    "marker_created": false,
+    "final_release_gate_passed": false,
+    "pre_soak_initial_failed_sample": {
+      "checked_at": 1789182720,
+      "failed_check": "backup_age",
+      "cause": "Initial health timer ran before the first backup finished; evidence is retained."
+    }
+  },
+  "validation": {
+    "monitor_unit_tests_passed": 13,
+    "terraform_validate_passed": true,
+    "shell_syntax_passed": true,
+    "python_compile_passed": true
+  },
+  "remaining_gates": [
+    "Final source/image deployment including Echo.",
+    "Final-release full recovery checks including client E2EE and attachments.",
+    "Actual 24-hour image-bound soak.",
+    "Full 100-client, 10-message/second, 30-minute AWS delivery and latency gate.",
+    "SNS email confirmation and actual alert receipt.",
+    "Public DNS/TLS/discovery/anonymous installation."
+  ]
+}

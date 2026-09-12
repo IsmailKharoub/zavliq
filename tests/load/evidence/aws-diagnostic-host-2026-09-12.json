@@ -1,0 +1,202 @@
+{
+  "run_id": "20260912T025538Z-db2976",
+  "window": {
+    "run_id": "20260912T025538Z-db2976",
+    "method": "Post-run wall-minus-monotonic mapping on same Mac; assumes no wall-clock jump.",
+    "mapped_start": "2026-09-12T03:03:44.478122+00:00",
+    "mapped_last_observation": "2026-09-12T03:06:47.580651+00:00"
+  },
+  "aws_metrics": {
+    "CPUUtilization": {
+      "unit": "Percent",
+      "points": [
+        {
+          "average": 54.818523462830825,
+          "maximum": 84.59819194715949,
+          "minimum": 4.083401390023167,
+          "timestamp": "2026-09-12 06:05:00+03:00",
+          "unit": "Percent"
+        }
+      ]
+    },
+    "BurstCapacityPercentage": {
+      "unit": "Percent",
+      "points": [
+        {
+          "average": 1.191865529513889,
+          "maximum": 1.191865529513889,
+          "minimum": 1.191865529513889,
+          "timestamp": "2026-09-12 06:05:00+03:00",
+          "unit": "Percent"
+        }
+      ]
+    },
+    "BurstCapacityTime": {
+      "unit": "Seconds",
+      "points": [
+        {
+          "average": 205.9543635,
+          "maximum": 205.9543635,
+          "minimum": 205.9543635,
+          "timestamp": "2026-09-12 06:05:00+03:00",
+          "unit": "Seconds"
+        }
+      ]
+    },
+    "NetworkIn": {
+      "unit": "Bytes",
+      "points": [
+        {
+          "average": 2981419.5,
+          "maximum": 4296958.0,
+          "minimum": 658.0,
+          "timestamp": "2026-09-12 06:05:00+03:00",
+          "unit": "Bytes"
+        }
+      ]
+    },
+    "NetworkOut": {
+      "unit": "Bytes",
+      "points": [
+        {
+          "average": 7255770.0,
+          "maximum": 10365698.0,
+          "minimum": 544.0,
+          "timestamp": "2026-09-12 06:05:00+03:00",
+          "unit": "Bytes"
+        }
+      ]
+    },
+    "StatusCheckFailed": {
+      "unit": "Count",
+      "points": [
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12 06:03:00+03:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12 06:07:00+03:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12 06:02:00+03:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12 06:06:00+03:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12 06:05:00+03:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12 06:04:00+03:00",
+          "unit": "Count"
+        }
+      ]
+    }
+  },
+  "historical_request_logs": {
+    "successful_matrix_requests_recorded": false,
+    "reason": "Synapse access/http logs configured WARNING; Caddy access logging disabled.",
+    "control_request_count": 12073,
+    "control_status_counts": {
+      "200": 12073
+    },
+    "control_response_time_ms": {
+      "p50": 109.5964,
+      "p95": 196.5848,
+      "max": 669.6689
+    },
+    "synapse_warning_logger_counts": {
+      "synapse.logging.context": 310,
+      "synapse.http.server": 555
+    },
+    "synapse_warning_fixed_keyword_counts": {
+      "context": 310,
+      "finished": 310,
+      "disconnect": 555,
+      "request": 555,
+      "timeout": 555
+    }
+  },
+  "post_run_snapshot": {
+    "available_memory_mib": 2798,
+    "swap_used_mib": 0,
+    "load_average": [
+      2.22,
+      3.3,
+      2.0
+    ],
+    "sampled_at_utc": "2026-09-12T03:08:04Z",
+    "container_cpu_percent": {
+      "control": 0.1,
+      "gateway": 0.07,
+      "synapse": 1.1,
+      "postgres": 3.45
+    },
+    "container_memory_mib": {
+      "control": 60.14,
+      "gateway": 32.63,
+      "synapse": 165,
+      "postgres": 102.6
+    }
+  },
+  "post_run_remote_loopback_ms": {
+    "/health": [
+      37.63,
+      8.43,
+      5.04,
+      4.19,
+      5.41
+    ],
+    "/_matrix/client/versions": [
+      3.86,
+      2.76,
+      2.59,
+      2.7,
+      2.5
+    ]
+  },
+  "limitations": [
+    "Historical AWS CPU/burst samples are coarse and cannot prove throttling.",
+    "Post-run probes and memory snapshot are idle evidence, not interval measurements.",
+    "Successful Matrix per-request timings were not logged and cannot be reconstructed.",
+    "Generator ran on Mac through SSH tunnel; public DNS/TLS path was not measured."
+  ],
+  "post_run_mac_tunnel_ms": {
+    "/health": [
+      324.33,
+      304.4,
+      301.63,
+      300.89,
+      303.16
+    ],
+    "/_matrix/client/versions": [
+      306.09,
+      300.53,
+      297.5,
+      304.21,
+      299.1
+    ]
+  }
+}

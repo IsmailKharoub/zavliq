@@ -10,3 +10,9 @@ infra/.artifacts
 **/.terraform
 **/*.tfstate*
 **/*.tfvars
+**/.staging
+**/.production
+**/*.tfplan
+**/*.tfvars.json
+**/crash.log
+**/crash.*.log

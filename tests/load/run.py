@@ -90,6 +90,7 @@ async def run(args) -> dict:
     clients = [Zavliq(binary=args.binary, data_dir=str(directory / f'identity-{index:03}'), control_url=target['origin'], timeout=90) for index in range(args.clients)]
     identities, rooms, cursors = [None] * args.clients, [None] * args.clients, [0] * args.clients
     failures, accepted, observed, duplicate_sequences, ack_latencies, e2e_latencies = [], {}, {}, set(), [], []
+    rpc_diagnostics = {name: [] for name in ('send_lock_wait', 'send_rpc', 'inbox_lock_wait', 'inbox_rpc')}
     locks = [asyncio.Lock() for _ in clients]
     observers, pending = [], set()
     state = {'missed_slots': 0, 'scheduled': 0, 'receive_errors': 0}
@@ -143,8 +144,13 @@ async def run(args) -> dict:
     async def receive(index):
         while True:
             try:
+                queued_at = time.monotonic()
                 async with locks[index]:
-                    page = await clients[index].call('inbox', {'cursor': cursors[index], 'limit': 100, 'full': True})
+                    rpc_started = time.monotonic()
+                    page = await clients[index].call('inbox', {'cursor': cursors[index], 'limit': 100, 'full': True, 'sync': args.inbox_mode == 'fresh'})
+                    rpc_finished = time.monotonic()
+                rpc_diagnostics['inbox_lock_wait'].append(rpc_started - queued_at)
+                rpc_diagnostics['inbox_rpc'].append(rpc_finished - rpc_started)
                 cursors[index] = page['next_cursor']
                 if page.get('history_gap_rooms'):
                     failures.append({'stage': 'receive', 'code': 'HISTORY_GAP', 'identity_index': index})
@@ -165,11 +171,18 @@ async def run(args) -> dict:
                         record({'kind': 'observed', 'sequence': sequence, 'event_id': event['event_id'], 'at': observed[sequence]['at']})
                 if page.get('has_more'):
                     continue
-                try:
-                    await asyncio.wait_for(clients[index].notifications.get(), timeout=2)
-                except asyncio.TimeoutError:
-                    pass
+                if args.inbox_mode == 'background':
+                    # Notifications follow durable ingestion. Never clear this
+                    # queue: a wakeup may have arrived during the inbox read.
+                    await clients[index].notifications.get()
+                else:
+                    try:
+                        await asyncio.wait_for(clients[index].notifications.get(), timeout=2)
+                    except asyncio.TimeoutError:
+                        pass
             except ZavliqError as error:
+                if error.code in ('RUNTIME_CLOSED', 'RUNTIME_UNAVAILABLE'):
+                    raise ReceiverStopped(index, error.code) from None
                 state['receive_errors'] += 1
                 record({'kind': 'receive_error', 'identity_index': index, 'code': error.code})
                 await asyncio.sleep(1)
@@ -177,14 +190,18 @@ async def run(args) -> dict:
     async def send(sequence, scheduled_at):
         index = sequence % args.clients
         try:
+            queued_at = time.monotonic()
             async with locks[index]:
+                rpc_started = time.monotonic()
                 response = await clients[index].send(rooms[index], text='Scheduled synthetic greeting.', data={'benchmark': identifier, 'sequence': sequence}, idempotency_key=f'{identifier}-{sequence}')
             at = time.monotonic()
             if response.get('status') != 'accepted' or not response.get('event_id'):
                 raise ValueError('SEND_NOT_ACCEPTED')
             accepted[sequence] = {'event_id': response['event_id'], 'scheduled_at': scheduled_at, 'at': at}
             ack_latencies.append(at - scheduled_at)
-            record({'kind': 'accepted', 'sequence': sequence, **accepted[sequence]})
+            rpc_diagnostics['send_lock_wait'].append(rpc_started - queued_at)
+            rpc_diagnostics['send_rpc'].append(at - rpc_started)
+            record({'kind': 'accepted', 'sequence': sequence, **accepted[sequence], 'lock_wait_seconds': rpc_started - queued_at, 'rpc_seconds': at - rpc_started})
         except Exception as error:
             code = getattr(error, 'code', type(error).__name__)
             failures.append({'stage': 'send', 'sequence': sequence, 'code': code})
@@ -269,7 +286,9 @@ async def run(args) -> dict:
         result = {'run_id': identifier, 'fixture_id': fixture_id, 'environment': target['environment'], 'hardware': target['hardware'], 'clients': args.clients, 'duration_seconds': args.duration, 'target_messages_per_second': args.rate, 'planned_messages': planned, 'accepted_messages': len(accepted), 'observed_acknowledged_messages': matched, 'missing_acknowledged_messages': len(accepted) - matched, 'duplicate_sequences': len(duplicate_sequences), 'failures': failures, **state, 'send_acknowledgement_latency': metric(ack_latencies), 'end_to_end_latency': latency, 'elapsed_including_drain_seconds': round(time.monotonic() - started, 3)}
         result['checks'] = evaluate(clients=args.clients, duration=args.duration, rate=args.rate, planned=planned, accepted=len(accepted), observed=matched, missed_slots=state['missed_slots'], failed=len(failures), duplicates=len(duplicate_sequences), latency=latency, environment=target['environment'])
         result['generator'] = {'tokio_workers_per_runtime': 2, 'setup_concurrency': 2, 'process_start_spacing_seconds': .5, 'store_and_sync_warmup_before_timer': True, 'setup_timeout_seconds': 90, 'measurement_rpc_timeout_seconds': 30}
+        result['generator']['inbox_mode'] = args.inbox_mode
         result['native_binary_sha256'] = binary_sha256
+        result['rpc_diagnostics'] = {name: metric(values) for name, values in rpc_diagnostics.items()}
         evidence = ROOT / 'tests/load/evidence'
         evidence.mkdir(exist_ok=True)
         (evidence / f'{identifier}.json').write_text(json.dumps(result, indent=2) + '\n')
@@ -277,6 +296,7 @@ async def run(args) -> dict:
         return result
     except Exception as error:
         result = {'run_id': identifier, 'environment': target['environment'], 'status': 'failed', 'stage': 'measurement' if started else 'fixture_setup', 'error_code': getattr(error, 'code', type(error).__name__), 'accepted_messages': len(accepted), 'observed_messages': len(observed), 'native_binary_sha256': binary_sha256, 'aws_staging_gate_passed': False}
+        result['inbox_mode'] = args.inbox_mode
         if isinstance(error, ReceiverStopped):
             result.update(receiver_index=error.receiver_index, receiver_error_class=error.reason)
         evidence = ROOT / 'tests/load/evidence'
@@ -301,6 +321,7 @@ if __name__ == '__main__':
     parser.add_argument('--duration', type=float, default=1800)
     parser.add_argument('--resume-run', help='Reuse existing private fixture identities and rooms; creates a new measurement record.')
     parser.add_argument('--prepare-only', action='store_true', help='Prepare identities and rooms, then close clients before a separate measurement.')
+    parser.add_argument('--inbox-mode', choices=('fresh', 'background'), default='fresh', help='Fresh sync per read (default), or local durable reads driven by runtime notifications without polling.')
     args = parser.parse_args()
     result = asyncio.run(run(args))
     if result.get('status') != 'fixtures_prepared' and not result.get('checks', {}).get('local_diagnostic_passed', False):

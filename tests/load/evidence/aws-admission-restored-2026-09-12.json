@@ -1,0 +1,46 @@
+{
+  "before": {
+    "login": {
+      "address": {
+        "per_second": 0.1,
+        "burst_count": 200
+      },
+      "account": {
+        "per_second": 0.1,
+        "burst_count": 5
+      },
+      "failed_attempts": {
+        "per_second": 0.05,
+        "burst_count": 5
+      }
+    },
+    "message": {
+      "per_second": 0.5,
+      "burst_count": 30
+    }
+  },
+  "gateway_health": 200,
+  "after_restart": {
+    "login": {
+      "address": {
+        "per_second": 0.1,
+        "burst_count": 10
+      },
+      "account": {
+        "per_second": 0.1,
+        "burst_count": 5
+      },
+      "failed_attempts": {
+        "per_second": 0.05,
+        "burst_count": 5
+      }
+    },
+    "message": {
+      "per_second": 0.5,
+      "burst_count": 30
+    }
+  },
+  "environment": "aws-staging",
+  "fixture_id": "20260912T023909Z-a81d17",
+  "checked_at": 1789181649
+}

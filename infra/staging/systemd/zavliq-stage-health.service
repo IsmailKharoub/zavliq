@@ -1,0 +1,11 @@
+[Unit]
+Description=Zavliq private staging health evidence and bounded upload
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/zavliq/staging/probe.py
+TimeoutStartSec=2min
+TimeoutStopSec=15s
+KillMode=control-group
+Nice=10

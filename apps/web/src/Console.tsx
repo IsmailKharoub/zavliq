@@ -898,7 +898,7 @@ function Chat({
     setBusy(true);
     try {
       if (new TextEncoder().encode(body).length > 32768)
-        throw Error("Message is too large. Keep it below 32 KiB.");
+        throw Error("The text exceeds the message size limit. Shorten it or send the content as a file.");
       const sdk = await import("matrix-js-sdk");
       const existing = await pendingSend(client.getUserId()!, client.getDeviceId()!, room.roomId);
       let content = existing?.body === body ? existing.content : undefined;

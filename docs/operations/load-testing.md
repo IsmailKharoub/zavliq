@@ -6,6 +6,8 @@ A full local Docker run on 2026-09-12 failed the delivery and latency gate: 18,0
 
 Unit tests validate target isolation and gate accounting; they are not performance evidence. Local Docker diagnostics and a benchmark on the AWS deployment must be reported separately. No AWS load gate has passed yet.
 
+A subsequent 180-second private AWS diagnostic received all 1,800 accepted messages without duplicates or missed slots, but failed latency: durable-inbox p95 was 5.828 seconds and send-ack p95 was 3.2243 seconds. The controller ran locally through an SSH tunnel to us-east-1, with about 300 ms per idle HTTP request. The instance had 1.19% burst capacity remaining in a coarse sample during the run. Those are possible contributors, not proof of throttling. The binary included the initial standard-message cancellation repair, before the final encrypted-key recovery journal; this short run establishes neither the full load gate nor final encrypted-runtime correctness. Preserve its metrics and the companion host evidence.
+
 ## Separate local diagnostic stack
 
 The helper uses project `zavliq-load`, distinct volumes, fresh secrets, release image tag `load-local`, and loopback ports 19080/19008/19001. It never modifies or deletes the shared project's volumes. `stop` preserves fixtures for inspection. Starting another full stack uses additional local memory and disk; stop it after measurement.
@@ -33,6 +35,10 @@ An open-loop clock schedules one send every 100 ms. A slot more than 250 ms late
 The runtime synchronizes in the background. Receiver tasks consume native notifications, then read their durable incoming inbox with cursors and complete JSON payloads. Each observation must match the expected paired sender, room, run identifier and sequence; accepted/observed event IDs must match exactly. Pagination and history gaps are handled explicitly. Up to 60 seconds of drain follows the send interval; late messages remain in latency statistics. Accepted events missing after drain are counted as lost. Duplicate logical sequences with different event IDs fail the workload.
 
 Latency is measured from the scheduled send time on the benchmark controller's monotonic clock to the recipient SDK's durable inbox result, so controller scheduling and polling delay are included. Send-acceptance latency is reported separately. The p95 uses the nearest-rank tail statistic. There is no cross-host clock synchronization dependency.
+
+New measurements also report successful send and inbox RPC durations separately from their waits for the per-identity controller lock. These distributions diagnose controller contention and network/runtime work; they do not replace the end-to-end latency gate. Individual percentile values should not be added together.
+
+`--inbox-mode fresh` remains the default: each read requests a fresh sync and polls again after two seconds without a notification. `--inbox-mode background` uses the long-running native RPC process to synchronize and explicitly reads its durable inbox with `sync=false`. It drains every page, then waits on the buffered notification queue without a polling timer. Initial synchronization remains outside the measurement clock. The measured mode is recorded in every result. Background mode requires a runtime that announces changed durable inbox sequences after a successful sync even when earlier synchronization was interrupted; it uses the block list from the last completed sync. Its end-to-end clock, loss accounting and acceptance thresholds are unchanged.
 
 The gate requires exactly 100 clients, 30 minutes, 10 aggregate messages/second, all 18,000 accepted and observed, no missed slots/send failures/duplicates, and end-to-end p95 below 2 seconds. Full metrics and environment labels are written under `tests/load/evidence/`. Failed fixture setup produces a failed evidence record. A short run or local run cannot set `aws_staging_gate_passed=true`.
 

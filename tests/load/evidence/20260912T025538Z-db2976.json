@@ -1,0 +1,50 @@
+{
+  "run_id": "20260912T025538Z-db2976",
+  "fixture_id": "20260912T023909Z-a81d17",
+  "environment": "aws-staging",
+  "hardware": "AWS Lightsail us-east-1a medium_3_0: 2vCPU,4GiB RAM,80GiB SSD; Linux x86_64, Docker29.1.3. App commit5fd35f709cf117fb448c23babe2d7583a1d4c197; same service memory/policy limits. Generator on local Apple Silicon32GiB/10cores through encrypted SSH tunnel28180 -> remote loopback19180; DNS/TLS public path not measured. Exact image IDs recorded in infra/.local/staging-plan/runtime-config.json.",
+  "clients": 100,
+  "duration_seconds": 180.0,
+  "target_messages_per_second": 10.0,
+  "planned_messages": 1800,
+  "accepted_messages": 1800,
+  "observed_acknowledged_messages": 1800,
+  "missing_acknowledged_messages": 0,
+  "duplicate_sequences": 0,
+  "failures": [],
+  "missed_slots": 0,
+  "scheduled": 1800,
+  "receive_errors": 0,
+  "send_acknowledgement_latency": {
+    "count": 1800,
+    "p50_seconds": 2.2377,
+    "p95_seconds": 3.2243,
+    "p99_seconds": 3.818,
+    "max_seconds": 4.4071
+  },
+  "end_to_end_latency": {
+    "count": 1800,
+    "p50_seconds": 4.5463,
+    "p95_seconds": 5.828,
+    "p99_seconds": 6.5173,
+    "max_seconds": 7.2623
+  },
+  "elapsed_including_drain_seconds": 185.321,
+  "checks": {
+    "zero_acknowledged_events_lost": true,
+    "workload_complete": true,
+    "p95_under_two_seconds": false,
+    "full_load_parameters": false,
+    "local_diagnostic_passed": false,
+    "aws_staging_gate_passed": false
+  },
+  "generator": {
+    "tokio_workers_per_runtime": 2,
+    "setup_concurrency": 2,
+    "process_start_spacing_seconds": 0.5,
+    "store_and_sync_warmup_before_timer": true,
+    "setup_timeout_seconds": 90,
+    "measurement_rpc_timeout_seconds": 30
+  },
+  "native_binary_sha256": "6d618dee0ab24997263c62da5d56de7c6432fdd882d1af668bae24a401aa6a4d"
+}

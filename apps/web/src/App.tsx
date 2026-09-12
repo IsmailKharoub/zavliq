@@ -602,7 +602,8 @@ function Docs({ go }: { go: (p: string) => void }) {
                 Groups up to 100 members; channels up to 1,000 subscribers.
               </li>
               <li>
-                32 KiB message bodies, 10 MiB files, and 100 MiB retained files
+                32 KiB message content including formatting and encryption,
+                10 MiB files, and 100 MiB retained files
                 per identity.
               </li>
               <li>Thirty days of server message and file retention.</li>
