@@ -1,0 +1,322 @@
+{
+  "schema": "zavliq-website-stats-release-v1",
+  "verification_status": "deployed_and_verified",
+  "prepared_at": "2026-09-12T11:43:31.965276Z",
+  "scope": "Website, public discovery metadata, and aggregate statistics update over the existing public beta backend; this is not a full-launch completion receipt.",
+  "website": {
+    "source_revision": "98e3f8997166d1b9debbb131cfe821af962c8c8a",
+    "source_archive_sha256": "07259f3f7d62ade112ba999f6198328c609159303f110e699a5f0b8fce7d2f8c",
+    "release_id": "98e3f8997166d1b9debbb131cfe821af962c8c8a-web-3166bc66ad0aaff1",
+    "manifest_sha256": "7c347ac2b8ec863429991e2a75ae23a6b59da96497a65f4edbb53cbad8355ee4",
+    "gateway_image": {
+      "ref": "zavliq-web:98e3f8997166d1b9debbb131cfe821af962c8c8a-web-3166bc66ad0aaff1",
+      "id": "sha256:974b6b3ebd27a5e9e2e79f5e1f92c6123f9d24334a5b35a9843f0f165c487623"
+    },
+    "gateway_archive_sha256": "8c6d584ede8fea9ef02879c32bf942e02435d8f8d573113286706bcd30583abd",
+    "architecture": "linux/amd64",
+    "build_completed_at": "2026-09-12T11:32:06Z",
+    "caddyfile_sha256": "e87f5674dbf77afd77679da0249aec76a033480941ec4de035e6354d5763e72a",
+    "preserved_hashed_browser_assets": 7,
+    "preserved_asset_hashes_match": true,
+    "deployed": true,
+    "post_switch_verification": "passed",
+    "activation_started_at": "2026-09-12T11:48:52Z",
+    "activation_completed_at": "2026-09-12T11:49:06Z"
+  },
+  "frozen_base": {
+    "application_and_runtime_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+    "production_manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+    "candidate_backend_image_pins_match_base": true,
+    "backend_services_in_scope": [
+      "postgres",
+      "synapse",
+      "control",
+      "echo"
+    ],
+    "website_transition_backend_preservation_verification": "passed",
+    "backend_metadata_compared": [
+      "container identity",
+      "image",
+      "start time",
+      "mounts"
+    ]
+  },
+  "checks": {
+    "final_source_ci": {
+      "status": "passed",
+      "source_revision": "98e3f8997166d1b9debbb131cfe821af962c8c8a",
+      "run_id": 34691279579,
+      "url": "https://github.com/IsmailKharoub/zavliq/actions/runs/34691279579",
+      "completed_at": "2026-09-12T11:39:27Z",
+      "evidence_scope": "Exact-run completion reported by the verification agent; this receipt preparation made no live GitHub calls."
+    },
+    "web_tests": {
+      "status": "passed",
+      "test_count": 63,
+      "evidence_scope": "Full web suite reported by the release coordinator."
+    },
+    "production_tools_full_suite": {
+      "status": "passed",
+      "test_count": 79,
+      "duration_seconds": 3.356,
+      "scope": "Before the Docker-context packaging correction; verified against the saved full-suite log."
+    },
+    "production_website_followup": {
+      "status": "passed",
+      "test_count": 12,
+      "scope": "Focused website suite after the context regression was added; reported by the operations agent. No full 80-test run is claimed."
+    },
+    "collector_tests": {
+      "status": "passed",
+      "test_count": 13,
+      "scope": "Offline mocks plus a real temporary Node SQLite read; no production stores used by these tests."
+    },
+    "caddy_routing": {
+      "status": "passed",
+      "test_groups": 6,
+      "duration_seconds": 9.709,
+      "image_digest": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "test_source_sha256": "656775da6730e1cf13e88aa60d8fbff919583668e720df6a89b302804eedea87",
+      "caddyfile_sha256": "e87f5674dbf77afd77679da0249aec76a033480941ec4de035e6354d5763e72a",
+      "scope": "Real isolated Caddy using synthetic read-only files and container-local HTTP, without public ports or external network; reported by the verification agent."
+    },
+    "local_browser_preview": {
+      "status": "passed",
+      "checked_at": "2026-09-12T11:05:25.702193+00:00",
+      "snapshot_as_of": "2026-09-12T11:02:21Z",
+      "checks": [
+        "initial_unavailable_em_dash_no_zero_fallback",
+        "real_production_aggregate_rendered",
+        "mobile_390_no_horizontal_overflow",
+        "chart_keyboard_enter_selection",
+        "methodology_expansion",
+        "failed_refresh_preserves_counts_and_timestamp",
+        "simulated_prior_UTC_day_delayed_and_partial_label",
+        "built_public_HTML_has_real_headings_and_crawlable_links",
+        "no_live_snapshot_baked_in_any_prerender",
+        "navigation_updates_title_canonical_description",
+        "browser_back_restores_stats_metadata",
+        "mobile_footer_links_wrap_without_overflow",
+        "preview_console_errors_empty",
+        "temporary_viewport_restored"
+      ],
+      "stale_case": "A local copy had its timestamps shifted back one UTC day; production data was not altered.",
+      "scope": "Local working-tree preview before the final image build; delayed and failed-refresh cases were simulated locally. Final public browser checks are recorded separately."
+    },
+    "live_public_bytes": {
+      "status": "passed",
+      "checked_at": "2026-09-12T11:49:27.241084+00:00",
+      "public_paths_matching_packaged_bytes": [
+        "/",
+        "/stats",
+        "/docs",
+        "/privacy",
+        "/status",
+        "/app",
+        "/robots.txt",
+        "/sitemap.xml",
+        "/llms.txt",
+        "/social-card.png",
+        "/assets/room-key-worker-Da2n_k72.js"
+      ],
+      "all_listed_paths_http_200": true,
+      "all_listed_paths_match_packaged_bytes": true,
+      "stats_page_sha256": "ef0bab75db6e818ab970175d86d36c20d8b7ae9014f401de33a9a20023514fe5",
+      "aggregate_headers": {
+        "status": 200,
+        "cache_control": "no-store",
+        "content_type": "application/json",
+        "as_of": "2026-09-12T11:49:03Z"
+      },
+      "stats_trailing_slash_redirect": {
+        "status": 308,
+        "location": "/stats"
+      },
+      "unknown_route_http_status": 404
+    },
+    "live_snapshot_schema": {
+      "status": "passed",
+      "checked_at": "2026-09-12T11:50:24.016Z",
+      "as_of": "2026-09-12T11:49:03Z",
+      "age_seconds": 81.016,
+      "stale": false,
+      "stale_after_seconds": 900
+    },
+    "live_browser": {
+      "status": "passed",
+      "checked_at": "2026-09-12T11:52:42.381552+00:00",
+      "url": "https://zavliq.com/stats",
+      "snapshot_as_of": "2026-09-12T11:49:03Z",
+      "checks": [
+        "timestamped_aggregate_counts_and_service_test_other_breakdown_visible",
+        "desktop_1280_and_mobile_390_no_horizontal_overflow",
+        "loading_uses_em_dash",
+        "keyboard_enter_chart_selection",
+        "methodology_expansion",
+        "refresh_returns_current_snapshot",
+        "docs_navigation_and_browser_back_update_metadata",
+        "console_errors_empty",
+        "temporary_viewport_restored"
+      ],
+      "interaction_scope": "Public website navigation and aggregate GET refresh only. No console sessions, identities, devices, or messages created."
+    },
+    "live_public_discovery": {
+      "status": "passed",
+      "started_at": "2026-09-12T11:51:25.134550+00:00",
+      "completed_at": "2026-09-12T11:51:31.070590+00:00",
+      "scope": "Public HTTPS responses only; initial HTML without JavaScript; no device sessions, accounts, messages, cookies, index submissions, or remote asset hash attestation.",
+      "public_pages_checked": [
+        "/",
+        "/docs",
+        "/privacy",
+        "/status",
+        "/stats"
+      ],
+      "all_page_checks_passed": true,
+      "page_check_scope": "Initial HTML headings, unique title, canonical URL, indexability, description, Open Graph, social card, crawlable links and structured page data; live status and statistics are not baked into HTML.",
+      "plain_documents_checked": [
+        "/llms.txt",
+        "/install.md",
+        "/skill.md",
+        "/protocol.md"
+      ],
+      "all_document_checks_passed": true,
+      "sitemap_exact_public_route_set": true,
+      "robots_checks": {
+        "public_crawling_allowed": true,
+        "sitemap_advertised": true,
+        "api_crawl_traps_excluded": true,
+        "public_stats_not_blocked": true,
+        "console_noindex_can_be_crawled": true
+      },
+      "social_image_dimensions": [
+        1200,
+        630
+      ],
+      "social_image_valid": true
+    },
+    "production_health": {
+      "status": "passed",
+      "checked_at": "2026-09-12T11:50:37Z",
+      "checks": {
+        "running_images": true,
+        "public_https": true,
+        "disk": true,
+        "backup_age": true
+      },
+      "scope": "Running image pins, public HTTPS, disk threshold and existing successful backup age; not a new restore drill."
+    },
+    "final_production_state": {
+      "status": "passed",
+      "checked_at": "2026-09-12T11:53:30.383529+00:00",
+      "read_only": true,
+      "checks": {
+        "website_ready_exact": true,
+        "production_ready_exact_base": true,
+        "base_pointer_unchanged": true,
+        "base_marker_env_unchanged_during_install": true,
+        "base_marker_env_no_later_metadata_change": true,
+        "four_backends_metadata_unchanged": true,
+        "four_backends_healthy_unpaused": true,
+        "installed_operator_hashes_exact": true,
+        "gateway_exact_running_unpaused": true,
+        "stats_timer_active_enabled": true,
+        "stats_fresh": true
+      },
+      "environment_comparison_scope": "Installer validated exact before/after hashes but did not retain those digest values. Final proof retains current hashes and verifies file ctimes predate that successful installation report. No retrospective hash-equality claim.",
+      "snapshot_as_of": "2026-09-12T11:49:03Z",
+      "snapshot_age_seconds": 267.383
+    }
+  },
+  "collector": {
+    "schema": "zavliq-public-stats-v1",
+    "refresh_seconds": 300,
+    "installed": true,
+    "installed_file_hashes_and_modes_verified": true,
+    "source_sha256": "ee9486f4166474fab4d8047a27b08c5c35a40a269e10d4cb62102598dc6225cc",
+    "installation_started_at": "2026-09-12T11:13:07.730494+00:00",
+    "installation_completed_at_local_clock": "2026-09-12T11:13:12.684759+00:00",
+    "backend_metadata_unchanged_during_collector_installation": true,
+    "backends_compared": 4,
+    "scheduled_refresh": {
+      "status": "passed",
+      "as_of": "2026-09-12T11:18:16Z",
+      "snapshot_sha256": "623c9a5de2beef23992cb42b1d8ded2c30d600ebeda04a56e328a6cbf1a0a2a9",
+      "timer_enabled": true,
+      "timer_active_and_waiting": true,
+      "finite_next_trigger_verified": true,
+      "service_result": "success",
+      "service_exit_code": 0,
+      "manual_run_triggered": false
+    },
+    "collection_failure_behavior": "The last valid snapshot is retained; the website marks it delayed after 15 minutes. No fabricated zero fallback."
+  },
+  "observed_snapshot": {
+    "as_of": "2026-09-12T11:49:03Z",
+    "sha256": "1242ba6f53affeccbcbda32d1a61b9b594b0ac495731823b22a4e4da1badfb7e",
+    "counts": {
+      "registered_total": 4,
+      "registered_service": 1,
+      "registered_test": 3,
+      "registered_other": 0,
+      "retained_conversations": 11
+    },
+    "activity_24h": {
+      "from": "2026-09-11T11:49:03Z",
+      "to": "2026-09-12T11:49:03Z",
+      "plaintext_messages": 13,
+      "encrypted_events": 4,
+      "message_activity": 17,
+      "participating_identities": 4
+    },
+    "interpretation": {
+      "registered_total": "Completed registrations, including service and test identities; not people or online agents.",
+      "registered_service": "Operator-classified service identities.",
+      "registered_test": "Operator-classified test identities.",
+      "registered_other": "Remaining registrations; not independently verified operators.",
+      "activity": "Retained accepted message and encrypted events, including controlled use; encrypted events can contain receipts and their contents are not inspected.",
+      "participating_identities": "Distinct senders of the counted events, including services and tests.",
+      "retained_conversations": "Retained Zavliq conversation markers, including inactive, private and controlled rooms; not an active-room count."
+    }
+  },
+  "public_targets": [
+    {
+      "url": "https://zavliq.com/stats",
+      "purpose": "Public statistics page",
+      "post_switch_verification": "passed"
+    },
+    {
+      "url": "https://zavliq.com/_zavliq/stats",
+      "purpose": "Aggregate JSON snapshot",
+      "post_switch_verification": "passed"
+    },
+    {
+      "url": "https://zavliq.com/status",
+      "purpose": "Public release and service status",
+      "post_switch_verification": "passed"
+    }
+  ],
+  "limitations": [
+    "Statistics are a snapshot, not a live connection count. The recorded four registrations are one service and three tests; none are classified as other registrations.",
+    "Other registered identities would not imply independently verified operators. Counted activity includes controlled use and encrypted events that can contain receipts; message contents are not inspected.",
+    "The full production-tools test run was 79 tests before the context correction, followed by 12 focused website tests. A full 80-test run is not claimed.",
+    "The environment installer checked before/after hash equality but did not retain those hashes. Final verification uses current hashes and file metadata; it cannot reconstruct retrospective hash equality.",
+    "The website package is retained separately from backend backups. Backend restore does not automatically restore this website layer, and this receipt does not claim a new website restore drill.",
+    "Public beta reliability, recovery, adoption and final launch gates remain unchanged and pending where previously recorded. This website release does not mark full launch complete."
+  ],
+  "full_launch_verified": false,
+  "finalized_at": "2026-09-12T11:58:12.368158Z",
+  "website_artifact_retention": {
+    "status": "passed",
+    "completed_at": "2026-09-12T11:43:57.194235+00:00",
+    "archive_bytes": 29931520,
+    "archive_sha256": "b553ed34f8c1adca5664c8b49f410bf68ce084722d9ed36736a6e0265d798c83",
+    "checksum_verified": true,
+    "website_manifest_sha256": "7c347ac2b8ec863429991e2a75ae23a6b59da96497a65f4edbb53cbad8355ee4",
+    "server_side_encryption": "AES256",
+    "private_owner_only": true,
+    "public_access_blocked": true,
+    "tls": true,
+    "scope": "Website artifacts retained separately off-host, outside daily backup expiry; no runtime identities or private classifier included. Artifact retention is not restore verification."
+  }
+}
