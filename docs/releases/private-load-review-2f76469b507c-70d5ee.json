@@ -1,0 +1,132 @@
+{
+  "schema": "zavliq.private-load-review.v1",
+  "reviewed_at_utc": "2026-09-12T08:24:02.168291+00:00",
+  "run_id": "20260912T073754Z-70d5ee",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "scope": "private AWS staging, standard DM workload; recorded evidence reviewed without network calls or opening client stores",
+  "evidence": {
+    "path": "tests/load/evidence/20260912T073754Z-70d5ee.json",
+    "sha256": "94cd329872b895c47c3b7d4fd948db1a61b0288a4de8d38cd9972ab53cff19e5"
+  },
+  "frozen_artifacts": {
+    "workflow_run": 34675091452,
+    "release_manifest_sha256": "f81baae19d3bd9b5c32484afe2f225d509f769e2b77ffa73f995bf67d4887cf8",
+    "native_binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+    "artifact_proof_sha256": "928c1b8fe0da749dd966ba48f3feea284ce541f2716edf2edbe747fc266702be",
+    "installed_python_module_sha256": {
+      "zavliq": "5124055596f961ad12f362f002d3296bf54fe6c1d597f8cd089331a6adadc689",
+      "zavliq.client": "4cce7bf19d0e9b93a3af68435040c33056a61695db7b616fa12312e5a45f7751"
+    },
+    "native_file_rehashed": true,
+    "isolated_installed_python_import_rechecked": true,
+    "checkout_sdk_fallback": false
+  },
+  "controller": {
+    "returncode": 0,
+    "completed_at_utc": "2026-09-12T08:09:01.161266+00:00",
+    "result_sha256": "7759b2fedc0280f35d616438e458a1f3c2aeaa835539907ce7e0c5b8cb19f19b",
+    "intent_sha256": "0e606307b3823722bc3bc06068f91335552ef9de29e007797e9eddd4b7a304b9",
+    "log_sha256": "270067d51b0dd6198d9383961f939deb5b344f98afd0937ba4b702d2352bf919",
+    "driver_sha256": "043e58c0f4864d52f1cb88814021f32cd6dbe4aff8b9523ed3a420a7b03d12ab",
+    "log_final_result_equals_evidence": true,
+    "result_checks_equal_evidence": true,
+    "driver_and_target_hashes_equal_start_intent": true,
+    "progress_samples": 59
+  },
+  "target": {
+    "environment": "aws-staging",
+    "server": {
+      "provider": "AWS Lightsail",
+      "region_zone": "us-east-1a",
+      "bundle": "medium_3_0",
+      "vcpus": 2,
+      "memory_gib": 4,
+      "disk_gib": 80,
+      "architecture": "x86_64",
+      "docker_version": "29.1.3"
+    },
+    "generator": "Apple Silicon Mac, 32 GiB RAM, 10 cores; encrypted SSH tunnel to private staging loopback",
+    "target_record_sha256": "54b2eb3c2ae74392d9f9d1157a75f27389a018e00169972943113260e6c6e14c",
+    "readiness_record_sha256": "107be0da48551b8e699d2dc12a2e489aaf68419de32d524e1608a6d9b4140ee3",
+    "soak_start_proof_sha256": "03bb6e07eef4bf9354afc47cd47bea003f0253293630c179248276a153d485dc",
+    "soak_marker_sha256": "fc4052a996bcfab6aac30a5be1ee99841edaf0193d04ecca4bd84210f96ec4d8",
+    "pre_measurement_image_records_agree": true,
+    "images": {
+      "synapse": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7",
+      "control": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5",
+      "gateway": "sha256:447820da615925972b244173e0200ca6dcb8fd100649b517da917516a7ac9d71",
+      "postgres": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "echo": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b"
+    }
+  },
+  "measurement": {
+    "started_at_utc": "2026-09-12T07:38:57.848995+00:00",
+    "finished_at_utc": "2026-09-12T08:09:01.069500+00:00",
+    "clients": 100,
+    "standard_dm_pairs": 50,
+    "existing_fixture_id": "20260912T023909Z-a81d17",
+    "duration_seconds": 1800,
+    "messages_per_second": 10,
+    "planned_messages": 18000,
+    "accepted_event_ids": 18000,
+    "matched_observed_event_ids": 18000,
+    "missing_event_ids": 0,
+    "duplicate_sequences": 0,
+    "send_failures": 0,
+    "receive_errors": 0,
+    "missed_slots": 0,
+    "inbox_mode": "background",
+    "enrollment_and_store_sync_warmup_before_timer": true,
+    "elapsed_including_drain_seconds": 1803.236
+  },
+  "independent_ledger_review": {
+    "sha256": "d4066ff59916a8b57cbf2e0afcf77cac3267973acbeca570e4d8e1eff1906705",
+    "records": 36001,
+    "record_kinds": {
+      "measurement_started": 1,
+      "accepted": 18000,
+      "observed": 18000
+    },
+    "exact_sequences_zero_through_17999": true,
+    "unique_accepted_event_ids": 18000,
+    "every_observed_event_id_matches_accepted_sequence": true,
+    "scheduled_times_match_ten_per_second": true,
+    "scheduled_last_offset_seconds": 1799.9,
+    "ack_and_end_to_end_percentiles_recomputed": true,
+    "send_lock_and_rpc_percentiles_recomputed": true,
+    "recomputed_send_acknowledgement_latency": {
+      "count": 18000,
+      "p50_seconds": 0.3743,
+      "p95_seconds": 0.6145,
+      "p99_seconds": 1.2878,
+      "max_seconds": 3.1787
+    },
+    "recomputed_end_to_end_latency": {
+      "count": 18000,
+      "p50_seconds": 0.9204,
+      "p95_seconds": 1.2275,
+      "p99_seconds": 2.0156,
+      "max_seconds": 4.3203
+    },
+    "latency_definition": "Scheduled send time to server acknowledgement, or to matching peer event observed in the durable local inbox; includes local lock/queue and tunnel delay."
+  },
+  "cleanup_snapshot": {
+    "checked_at_utc": "2026-09-12T08:24:02.168291+00:00",
+    "frozen_runtime_process_count": 0,
+    "original_controller_pid_present": false,
+    "method": "read-only local process snapshot after controller exit; no fixture runtime reopened"
+  },
+  "checks": {
+    "recorded_aws_staging_gate_passed": true,
+    "independent_accounting_and_provenance_passed": true
+  },
+  "limitations": [
+    "The workload reused 100 persistent identities and 50 standard DMs; enrollment and store/sync warmup were outside the timer.",
+    "The client used the authenticated private draft macOS executable and installed Python wheel; anonymous installation and Linux client execution were not exercised.",
+    "Public DNS/TLS, production activation, E2EE, attachments, groups/channels and outage recovery were not part of this load measurement.",
+    "Backend identity is bound to the preserved pre-measurement readiness and soak-start records; this review made no fresh cloud queries.",
+    "Duplicate accounting covers distinct workload event IDs observed during the run and 2.2-second final observation grace; arbitrary later duplicates are not measured.",
+    "The 24-hour soak and remaining public launch gates are separate and are not marked complete by this result."
+  ],
+  "launch_verified": false
+}

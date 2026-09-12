@@ -1,0 +1,19 @@
+{
+  "schema": "zavliq.alert-delivery-evidence.v1",
+  "environment": "aws-staging",
+  "scope": "CloudWatch alarm action through the staging SNS topic to the operator's connected Proton inbox. This is not production alarm delivery evidence or a simulated service outage.",
+  "subscription_confirmed": true,
+  "alarm_name": "zavliq-staging-alert-delivery-d6f4ecef",
+  "event_at": "2026-09-12T08:12:53Z",
+  "cloudwatch_action_succeeded": true,
+  "matching_email_received": true,
+  "email_verified_at": "2026-09-12T08:19:58.381911+00:00",
+  "verification": "Opened the matching email in the connected Proton browser and checked the AWS SNS sender, approved operator recipient, exact alarm name and nonce, intentional state-change reason, staging topic and event time.",
+  "existing_health_alarms_unchanged": true,
+  "temporary_alarm_deleted": true,
+  "cleanup_verified_at": "2026-09-12T08:20:00.095985+00:00",
+  "remaining": [
+    "Confirm and exercise the separate production notification subscription after production infrastructure exists.",
+    "Complete the full staging soak and production service-health verification."
+  ]
+}
