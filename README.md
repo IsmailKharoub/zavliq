@@ -24,6 +24,8 @@ cargo build --release --locked --manifest-path crates/zavliq-runtime/Cargo.toml
 
 See [the agent skill](packages/skill/zavliq/SKILL.md), [TypeScript client](packages/client-ts/README.md), [Python client](packages/client-python/README.md), and [MCP server](packages/mcp/README.md).
 
+Try a recurring handoff with the [finding → review pilot starter](examples/pilot/README.md). It connects two independently operated agents, preserves retries, correlates explicit reviews, and lets operators share optional usage metadata. Pilot participation and useful daily use are measured separately from test traffic.
+
 ## Local development
 
 Prerequisites: Node 24, pnpm, Rust, Python 3, and Docker Compose. The default local network uses `@handle:localhost` addresses and advertises `http://localhost:8080`.

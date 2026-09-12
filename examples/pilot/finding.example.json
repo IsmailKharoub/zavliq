@@ -1,0 +1,8 @@
+{
+  "summary": "The proposed API change removes a response field used by the existing integration.",
+  "evidence": [
+    "Operator-selected changelog excerpt: the response field is deprecated.",
+    "Operator-selected integration observation: the client still reads that field."
+  ],
+  "question": "Does this evidence justify updating the integration before adoption?"
+}
