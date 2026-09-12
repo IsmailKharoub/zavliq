@@ -1,0 +1,40 @@
+{
+  "schema": "zavliq.public-browser-verification.v1",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "origin": "https://zavliq.com",
+  "recorded_at": "2026-09-12T09:36:33.494176+00:00",
+  "method": "Operator-controlled live browser UI with DOM snapshots and screenshot inspection. No application mocks or direct browser-state edits.",
+  "checks": {
+    "landing_desktop_1280x720_inspected": true,
+    "landing_mobile_390x844_inspected": true,
+    "quickstart_and_status_navigation": true,
+    "console_pairing_existing_native_identity": true,
+    "native_pair_request_inspected_before_approval": true,
+    "separate_browser_device_issued": true,
+    "no_extra_account_registration": true,
+    "separate_standard_echo_conversation": true,
+    "enter_key_sent_message": true,
+    "delivered_state_visible": true,
+    "literal_echo_reply_visible": true,
+    "desktop_console_1280x720_inspected": true
+  },
+  "native_peer": "@finch-0f9084af:zavliq.com",
+  "pairing_approved_at": "2026-09-12T09:34:06.674978+00:00",
+  "console_logs": {
+    "errors_observed": 0,
+    "warnings_observed": 4,
+    "warning_scope": "Matrix SDK added default push rules for server ACL and room calls; two occurrences each."
+  },
+  "private_proof_sha256": {
+    "pair-inspect.json": "d2686396ce7b259a33b218cb07896c5cdafd242e9df71a50929c20d8ae7aece7",
+    "pair-approve.json": "e1222bcbd2f5ec2e2c998382f7844ce8366f61ee7e4a0a22b4ac585d86c1ebba"
+  },
+  "not_assessed": [
+    "Browser encrypted-history recovery",
+    "Full mobile messaging workflow",
+    "Browser reload persistence",
+    "Exhaustive accessibility compliance"
+  ],
+  "screenshot_files_saved": false,
+  "launch_requirements_complete": false
+}

@@ -1,0 +1,164 @@
+{
+  "schema": "zavliq.production-activation-verification.v1",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "origin": "https://zavliq.com",
+  "production_manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+  "scope": "Saved operator evidence of exact-image deployment and public HTTPS health/discovery; not a complete launch or client verification.",
+  "started_at": "2026-09-12T08:49:48.933689+00:00",
+  "completed_at": "2026-09-12T08:51:24.027573+00:00",
+  "https_checked_at": "2026-09-12T08:53:43.991280+00:00",
+  "bundle_id": "2f76469b507c8745d4be5ef311f32774021143aa-public-bfbbdfde184eb666",
+  "transport_sha256": "093f015eca893027e9a3113ee3a60805a65b1e9b3c81410463d164dabcf0efec",
+  "checks": {
+    "activation_completed": true,
+    "fresh_production_configuration": true,
+    "exact_five_image_ids": true,
+    "all_services_running_unpaused": true,
+    "non_gateway_container_health": true,
+    "gateway_public_https_health": true,
+    "canonical_discovery": true,
+    "host_status_checks": true,
+    "primary_backup_key_not_copied_to_host": true
+  },
+  "services": {
+    "synapse": {
+      "id": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    },
+    "control": {
+      "id": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    },
+    "gateway": {
+      "id": "sha256:1a368a99a18db87f8d1794c4bfc15f777774978c639ea43d4c644671f94f945f",
+      "running": true,
+      "paused": false,
+      "health": null
+    },
+    "echo": {
+      "id": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    },
+    "postgres": {
+      "id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    }
+  },
+  "https": {
+    "protocol": "TLSv1.3",
+    "certificate_dns_names": [
+      "zavliq.com"
+    ],
+    "issuer": "Let's Encrypt",
+    "valid_from": "Sep 12 07:52:40 2026 GMT",
+    "valid_until": "Dec 11 07:52:39 2026 GMT",
+    "endpoint_statuses": {
+      "/health": 200,
+      "/_matrix/client/versions": 200,
+      "/.well-known/zavliq": 200,
+      "/.well-known/matrix/client": 200,
+      "/_zavliq/health": 200
+    },
+    "hsts": {
+      "/health": "max-age=31536000",
+      "/_matrix/client/versions": "max-age=31536000",
+      "/.well-known/zavliq": "max-age=31536000",
+      "/.well-known/matrix/client": "max-age=31536000",
+      "/_zavliq/health": "max-age=31536000"
+    }
+  },
+  "discovery": {
+    "server_name": "zavliq.com",
+    "homeserver": "https://zavliq.com",
+    "control_url": "https://zavliq.com",
+    "advertised_registration_open": true,
+    "advertised_limits": {
+      "messages_per_day": 1000,
+      "messages_per_minute": 30,
+      "new_contacts_per_day": 5,
+      "group_members": 100,
+      "channel_subscribers": 1000,
+      "message_bytes": 32768,
+      "file_bytes": 10485760,
+      "retained_file_bytes": 104857600,
+      "retention_days": 30
+    }
+  },
+  "bootstrap": {
+    "initial_verification_failed": true,
+    "failure_reason": "The initial verifier rejected the full Ubuntu Compose package-version suffix although the pinned packages and containerd store were present. No application images, containers or volumes existed at that failure.",
+    "initial_cloud_init_sha256": "08c81e7e55021cfbd2177720d48b7d7f0fa8af90eaf1c0c2737a65ac337a7802",
+    "corrected_cloud_init_sha256": "a209533e3b64b747442be8dc18374a1b541ea7cb805913ad1007f27ae9b835e8",
+    "resume_script_sha256": "73ef892369a916348c752a5a17cd67468559688a7e65461ac9aac693eb4db7e4",
+    "original_failure_preserved": true,
+    "reinstallation_or_state_deletion": false,
+    "correction_completed_at": "2026-09-12T08:47:44.457130+00:00",
+    "verified_host": {
+      "checked_at": "2026-09-12T08:47:45.347354+00:00",
+      "engine_version": "29.1.3",
+      "compose_version": "2.40.3+ds1-0ubuntu1~24.04.1",
+      "architecture": "x86_64",
+      "os": "linux",
+      "image_store": "io.containerd.snapshotter.v1",
+      "containerd_packages": {
+        "containerd": "2.2.1-0ubuntu1~24.04.3"
+      }
+    }
+  },
+  "operator_tool_sha256": {
+    "activate.py": "373a16990bf1b7b6bc39f79ace588f87e6e72aa029cbc00e35d489869a1d2178",
+    "prepare_bundle.py": "e5af080f472c1f5c946d6e6bf0d2796836be8d75be78b400e0ea86d353645575",
+    "restore.py": "13903b1b702a77c47ec404c27200731cf64994e51195fd2f949ac754950a7eb1"
+  },
+  "monitor_invocation": {
+    "observed_metrics": {
+      "Available": 1,
+      "BackupFresh": 1,
+      "HostHealthy": 1
+    },
+    "invocation_timestamp_in_saved_proof": null,
+    "scope": "One saved successful invocation; does not establish sustained production availability."
+  },
+  "github_environment": {
+    "verified_at": "2026-09-12T08:25:24.692910+00:00",
+    "production_environment_configured": true,
+    "main_branch_only": true,
+    "verified_variable_names": [
+      "AWS_ACCOUNT_ID",
+      "AWS_DEPLOY_ROLE_ARN",
+      "BACKUP_BUCKET",
+      "LIGHTSAIL_INSTANCE"
+    ],
+    "workflows_enabled": false,
+    "aws_role_assumption_verified": false
+  },
+  "not_assessed": [
+    "Public agent registration and messaging",
+    "Browser account, pairing and recovery flows",
+    "Production original-device restore and replacement-host cutover",
+    "Live GitHub OIDC assumption and workflow execution",
+    "Completed 24-hour soak",
+    "Anonymous installation and published-asset model onboarding"
+  ],
+  "private_proof_sha256": {
+    "preparation-review.json": "32dae2a5778605408a1812e1e52e19b6ca58b0dafd7fa3fba599db6aeb245f80",
+    "bootstrap-resume-intent.json": "eba8b828a30149236ea36fb3a7788b4bbbd16d3514c073a4546fc2da3d75b3cd",
+    "bootstrap-resume-result.json": "d743d36c92570af91f12affa3035fffa8b33b0826b5187f6756e023ba3d0932a",
+    "installation-intent.json": "e7a38ef1c787265efc261fcbf31e9b93cf3634dc4983de310a2f1553aad4ca09",
+    "installation-result.json": "12712628021fa542278c0c8e75a5c4e621657e2bbae027aef2852452539b809e",
+    "activation-intent.json": "47fa9f9f5831b7b1bacbe2b831ff3d7f02e5f904560ac0a12f514efe85d3eaed",
+    "activation-result.json": "8d17acf63c972f025a18c01fde6375877647e2440f58ca4faa1d30d0b33caa14",
+    "ready-host.json": "9ec19582993e086b7732b31153bab88bfbbabd008bd5324618924cb9c7cfc601",
+    "public-readiness.json": "096e464096911b734f395b514e3c1cdfbd071083f01f0a4c80fcdae79fb7e63c",
+    "monitor-invocation.json": "a2690349d60adf94d909c718c84881817bbd249644070f1aa9717511c50483eb",
+    "github-environment-result.json": "256c18b4e38b1b149f3f5c6c5469588511918ab33126ef36606c620d2af0948f"
+  }
+}

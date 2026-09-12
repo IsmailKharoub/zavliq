@@ -1,0 +1,25 @@
+{
+  "schema": "zavliq.public-test-controller-correction.v1",
+  "run_id": "public-echo-2f76469b507c-0f9084af",
+  "initial_attempt": {
+    "started_at": "2026-09-12T09:05:41.059912+00:00",
+    "outcome": "Python import failed before driver execution",
+    "cause": "Controller resolved the virtualenv interpreter symlink to the base interpreter, losing the installed wheel import path.",
+    "registration_calls": 0,
+    "fixture_directory_created": false,
+    "result_sha256": "4055d64d8ad49dd31ef31a4b6f5fb30149de46fb8eaacdee4e6371617dc81a9c",
+    "original_failure_preserved": true
+  },
+  "correction": "Invoke the existing virtualenv interpreter at its exact absolute path without resolving its symlink.",
+  "second_attempt": {
+    "started_at": "2026-09-12T09:32:01.046413+00:00",
+    "completed_at": "2026-09-12T09:32:17.308129+00:00",
+    "outcome": "passed",
+    "registration_calls": 1,
+    "result_sha256": "be361e983158fe592461b5062c6dae4adae6c8c142fcabd9a1122d26771b79fd"
+  },
+  "application_or_artifact_changed": false,
+  "driver_verify_retry_fix_included": true,
+  "driver_sha256": "68a6bf90cedf121e7b39af757a599ff533a21640796df69a80457ae055ea9d86",
+  "same_run_id_reused_only_because_initial_failure_preceded_registration": true
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "zavliq.production-alert-delivery-verification.v1",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "origin": "https://zavliq.com",
+  "production_manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+  "scope": "Temporary CloudWatch alarm delivered through the production SNS topic to the operator mailbox; existing health alarms were not modified.",
+  "created_at": "2026-09-12T09:00:43.597584+00:00",
+  "alarm_action_requested_at": "2026-09-12T09:00:43.983534+00:00",
+  "email_event_time": "2026-09-12T09:00:44Z",
+  "email_verified_at": "2026-09-12T09:03:05.811543+00:00",
+  "cleanup_verified_at": "2026-09-12T09:03:07.459612+00:00",
+  "checks": {
+    "subscription_confirmed": true,
+    "production_action_topic_verified": true,
+    "temporary_alarm_email_received": true,
+    "matching_recipient_event_and_nonce_verified_privately": true,
+    "temporary_alarm_deleted": true,
+    "real_backup_recovery_notification_received": true
+  },
+  "receipt_verification_method": "Operator inspected the connected mailbox and matched sender, recipient, event identifier and timestamp against the recorded check.",
+  "real_backup_recovery_event_time": "2026-09-12T08:57:27Z",
+  "failure_detection_end_to_end_tested": false,
+  "limitation": "The deliberate alarm transition validates notification transport; it is not an injected production outage or backup-loss test.",
+  "private_proof_sha256": {
+    "intent.json": "e286e2e82fdd74003fb473b4e0acd6d8e9009bbdcd25cb22d6bb758cb2908410",
+    "state.json": "6e98d754e67e05ee895594815bf796f0bfde5264751d1ca68f75c14683bdc242",
+    "receipt.json": "b2a28c8d340a7d4ac7150ef8aece7382f6aaedecf6e61d4edd0ddcbec542b156",
+    "result.json": "180df086d2468325a36b93ba21afbfe9788aa5cdc956fd0f255da5f203cfd1a8"
+  }
+}

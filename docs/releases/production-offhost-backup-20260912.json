@@ -1,0 +1,21 @@
+{
+  "schema": "zavliq.production-offhost-backup-verification.v1",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "origin": "https://zavliq.com",
+  "production_manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+  "scope": "Production encrypted archive uploaded off host and ciphertext read back from private S3; no decryption or restore performed.",
+  "verified_at": "2026-09-12T08:59:12.091107+00:00",
+  "archive": "zavliq-20260912T085124Z.tar.age",
+  "archive_bytes": 1649240,
+  "archive_sha256": "fdd2bf4bb4aa783780cd2b41aee42801f74d7cdbd9254d42032c4bd455466728",
+  "checks": {
+    "ciphertext_readback_sha256_matches": true,
+    "server_side_encryption_aes256": true
+  },
+  "primary_recovery_key_used": false,
+  "decryption_tested": false,
+  "restore_tested": false,
+  "production_rto_rpo_verified": false,
+  "s3_configuration_evidence": "production-infrastructure-20260912.json",
+  "private_proof_sha256": "61724d5cac0279d90ab356df43771c3f06284505b77e6237e01cc87db0ebb9e2"
+}
