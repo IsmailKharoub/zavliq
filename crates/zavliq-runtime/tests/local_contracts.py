@@ -1,12 +1,14 @@
 """Local process regressions. Uses synthetic credentials and an isolated loopback server."""
 import json
 import os
+import queue
 import select
 import subprocess
 import tempfile
 import threading
 import time
 import unittest
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -31,12 +33,48 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
+        if self.server.background_contract:
+            if '/sync?' in self.path:
+                query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                self.server.sync_requests.append((query, time.monotonic()))
+                first = len(self.server.sync_requests) == 1
+                if not first and query.get('timeout') == ['30000']:
+                    self.server.long_poll_started.set()
+                    self.server.poll_resume.acquire(timeout=10)
+                room = '!cedar:localhost'
+                state = [
+                    {'type': 'm.room.create', 'event_id': '$create', 'state_key': '', 'sender': '@sage:localhost', 'origin_server_ts': 1, 'content': {'creator': '@sage:localhost', 'room_version': '10'}},
+                    {'type': 'm.room.member', 'event_id': '$join', 'state_key': '@sage:localhost', 'sender': '@sage:localhost', 'origin_server_ts': 2, 'content': {'membership': 'join'}},
+                ]
+                events = [{'type': 'm.room.message', 'event_id': event, 'sender': sender, 'origin_server_ts': 3, 'content': {'msgtype': 'm.text', 'body': 'Synthetic local message.'}}
+                          for event, sender in [('$visible', '@lumen:localhost'), ('$blocked', '@juniper:localhost')]] if first else []
+                self.result(200, {'next_batch': 'batch-1', 'rooms': {'join': {room: {'state': {'events': state}, 'timeline': {'limited': first, 'prev_batch': 'older', 'events': events}}}}, 'device_one_time_keys_count': {'signed_curve25519': 50}})
+            elif self.path == '/v1/blocks':
+                self.server.block_calls += 1
+                if self.server.block_calls == 1:
+                    self.server.block_started.set()
+                    self.server.resume_blocks.wait(10)
+                self.server.block_completed = time.monotonic()
+                self.result(200, {'blocked_user_ids': ['@juniper:localhost']})
+            elif '/messages?' in self.path:
+                if self.server.history_ready:
+                    self.result(200, {'start': 'older', 'chunk': []})
+                else:
+                    self.result(403, {'errcode': 'M_FORBIDDEN', 'error': 'Synthetic history temporarily unavailable'})
+            elif '/versions' in self.path:
+                self.result(200, {'versions': ['v1.11']})
+            else:
+                self.result(200, {})
+            return
         self.server.request_started.set()
         self.server.release.wait(5)
         self.result(200, {'versions': ['v1.11']})
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+        if self.server.background_contract:
+            self.result(200, {'one_time_key_counts': {'signed_curve25519': 50}} if '/keys/upload' in self.path else {'device_keys': {}, 'failures': {}})
+            return
         if self.path == '/v1/pairings':
             self.server.starts += 1
             self.result(201, {'pairing_id': 'public-request', 'pairing_secret': PROOF,
@@ -74,10 +112,20 @@ class Contracts(unittest.TestCase):
         self.server.approved = self.server.wrong_user = self.server.expired = False
         self.server.request_started = threading.Event()
         self.server.release = threading.Event()
+        self.server.background_contract = False
+        self.server.sync_requests = []
+        self.server.block_calls = 0
+        self.server.block_started = threading.Event()
+        self.server.resume_blocks = threading.Event()
+        self.server.long_poll_started = threading.Event()
+        self.server.poll_resume = threading.Semaphore(0)
+        self.server.history_ready = False
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def tearDown(self):
         self.server.release.set()
+        self.server.resume_blocks.set()
+        self.server.poll_resume.release()
         self.server.shutdown()
         self.server.server_close()
         self.temp.cleanup()
@@ -151,6 +199,64 @@ class Contracts(unittest.TestCase):
         finally:
             process.terminate()
             process.wait(timeout=5)
+            process.stdin.close()
+            process.stdout.close()
+
+    def test_background_long_poll_recovers_cancelled_notification_and_gap_changes(self):
+        self.server.background_contract = True
+        identity = {'handle': 'sage', 'control_url': self.server.url, 'registration_secret': PROOF,
+                    'store_passphrase': 'synthetic-passphrase', 'session': {'user_id': '@sage:localhost',
+                    'device_id': 'DEVICE', 'access_token': TOKEN, 'homeserver': self.server.url}}
+        (self.directory / 'identity.json').write_text(json.dumps(identity))
+        process = subprocess.Popen([str(BINARY), '--data-dir', str(self.directory), '--control-url',
+                                    self.server.url, 'rpc'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, text=True, bufsize=1)
+        messages = queue.Queue()
+        reader = threading.Thread(target=lambda: [messages.put(json.loads(line)) for line in process.stdout], daemon=True)
+        reader.start()
+        def receive(predicate):
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                message = messages.get(timeout=max(.001, deadline - time.monotonic()))
+                if predicate(message):
+                    return message
+            self.fail('Expected runtime message never arrived')
+        try:
+            self.assertTrue(self.server.block_started.wait(20), 'sync did not reach post-commit block refresh')
+            self.assertTrue(messages.empty(), 'notification must wait for block refresh')
+            # Cancel after SQLite commit but before block refresh/notification.
+            process.stdin.write('{"jsonrpc":"2.0","id":1,"method":"identity","params":{}}\n')
+            process.stdin.flush()
+            receive(lambda message: message.get('id') == 1)
+            self.server.resume_blocks.set()
+            pending = receive(lambda message: message.get('method') == 'message_available')
+            self.assertEqual(pending['params']['received'], 0)
+            self.assertEqual(pending['params']['history_gap_rooms'], ['!cedar:localhost'])
+            self.assertGreater(pending['params']['inbox_high_water'], 0)
+            self.assertTrue(self.server.long_poll_started.wait(2), 'a failed gap must resume idle long polling')
+            requests_before = len(self.server.sync_requests)
+            time.sleep(.1)
+            self.assertEqual(len(self.server.sync_requests), requests_before, 'failed history caused a rapid retry loop')
+            self.server.history_ready = True
+            self.server.long_poll_started.clear()
+            self.server.poll_resume.release()
+            complete = receive(lambda message: message.get('method') == 'message_available' and not message['params']['history_gap_rooms'])
+            self.assertEqual(complete['params']['received'], 0)
+            self.assertEqual(complete['params']['inbox_high_water'], pending['params']['inbox_high_water'])
+            self.assertTrue(self.server.long_poll_started.wait(2), 'runtime idled instead of resuming long polling')
+            self.assertLess(self.server.sync_requests[-1][1] - self.server.block_completed, .5)
+            self.assertEqual(self.server.sync_requests[0][0]['timeout'], ['30000'])
+            self.assertTrue(any(query.get('timeout', ['0']) == ['0'] for query, _ in self.server.sync_requests[1:-1]), 'unfinished inbox/gaps should not wait for a long poll')
+            started = time.monotonic()
+            process.stdin.write('{"jsonrpc":"2.0","id":2,"method":"inbox","params":{"sync":false,"full":true}}\n')
+            process.stdin.flush()
+            inbox = receive(lambda message: message.get('id') == 2)['result']
+            self.assertLess(time.monotonic() - started, 1)
+            self.assertEqual([event['event_id'] for event in inbox['items']], ['$visible'])
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+            reader.join(timeout=2)
             process.stdin.close()
             process.stdout.close()
 

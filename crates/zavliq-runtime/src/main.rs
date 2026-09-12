@@ -175,6 +175,9 @@ async fn run() -> anyhow::Result<()> {
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             let mut failures = 0u32;
             let mut online = false;
+            let mut notified_high_water = 0i64;
+            let mut notified_gaps = Vec::<String>::new();
+            let mut resume_history = false;
             enum RuntimeEvent {
                 Line(std::io::Result<Option<String>>),
                 Synced(anyhow::Result<Value>),
@@ -184,12 +187,14 @@ async fn run() -> anyhow::Result<()> {
                     line=lines.next_line()=>RuntimeEvent::Line(line),
                     _=tick.tick()=>{
                         if runtime.store.identity()?.and_then(|i|i.session).is_none(){continue;}
-                        // Incoming commands take precedence over background network
-                        // work. Cancelling sync is safe: our durable cursor is the
-                        // source of truth and replay is idempotent.
+                        // Catch up committed-but-unannounced inbox data and history
+                        // pages immediately; otherwise let the server wait for events.
+                        let wait_seconds=if runtime.store.high_water()? > notified_high_water || resume_history {0}else{30};
+                        // Incoming commands remain responsive. The durable recovery
+                        // phase protects an interrupted SDK/inbox commit boundary.
                         tokio::select! {
                             line=lines.next_line()=>RuntimeEvent::Line(line),
-                            result=runtime.call("sync",json!({}))=>RuntimeEvent::Synced(result),
+                            result=runtime.call("sync",json!({"wait_seconds":wait_seconds}))=>RuntimeEvent::Synced(result),
                         }
                     }
                 };
@@ -208,14 +213,27 @@ async fn run() -> anyhow::Result<()> {
                                 }
                                 online = true;
                                 failures = 0;
-                                tick.reset();
-                                if result["received"].as_u64().unwrap_or(0) > 0 {
+                                tick.reset_after(std::time::Duration::from_millis(10));
+                                let high_water = result["inbox_high_water"].as_i64().unwrap_or(0);
+                                let gaps = serde_json::from_value::<Vec<String>>(
+                                    result["history_gap_rooms"].clone(),
+                                )?;
+                                resume_history =
+                                    result["history_progress"].as_bool().unwrap_or(false)
+                                        && !gaps.is_empty();
+                                if high_water != notified_high_water
+                                    || gaps != notified_gaps
+                                    || result["received"].as_u64().unwrap_or(0) > 0
+                                {
                                     output(
                                         &json!({"jsonrpc":"2.0","method":"message_available","params":result}),
                                     );
+                                    notified_high_water = high_water;
+                                    notified_gaps = gaps;
                                 }
                             }
                             Err(_) => {
+                                resume_history = false;
                                 if online {
                                     output(
                                         &json!({"jsonrpc":"2.0","method":"connection_state","params":{"connected":false,"action":"Messages remain queued; the runtime will retry synchronization."}}),
@@ -259,6 +277,9 @@ async fn run() -> anyhow::Result<()> {
                         request.get("params").cloned().unwrap_or(json!({})),
                     )
                     .await;
+                if failures == 0 {
+                    tick.reset_after(std::time::Duration::from_millis(10));
+                }
                 if request.get("id").is_none() {
                     continue;
                 }

@@ -61,8 +61,15 @@ def check_receivers(tasks):
     for index, task in enumerate(tasks):
         if task.done():
             error = None if task.cancelled() else task.exception()
+            if isinstance(error, ReceiverStopped):
+                raise error from None
             reason = 'CANCELLED' if task.cancelled() else type(error).__name__ if error else 'EARLY_EXIT'
             raise ReceiverStopped(index, reason) from None
+
+
+def check_notification(index, notification):
+    if notification.get('method') == 'connection_state' and notification.get('params', {}).get('closed') is True:
+        raise ReceiverStopped(index, 'RUNTIME_CLOSED')
 
 
 async def run(args) -> dict:
@@ -174,10 +181,10 @@ async def run(args) -> dict:
                 if args.inbox_mode == 'background':
                     # Notifications follow durable ingestion. Never clear this
                     # queue: a wakeup may have arrived during the inbox read.
-                    await clients[index].notifications.get()
+                    check_notification(index, await clients[index].notifications.get())
                 else:
                     try:
-                        await asyncio.wait_for(clients[index].notifications.get(), timeout=2)
+                        check_notification(index, await asyncio.wait_for(clients[index].notifications.get(), timeout=2))
                     except asyncio.TimeoutError:
                         pass
             except ZavliqError as error:
@@ -219,32 +226,37 @@ async def run(args) -> dict:
             if fixture['clients'] != args.clients or fixture['origin'] != target['origin']:
                 raise ValueError('Existing fixture size/origin differs from the requested measurement.')
             rooms = fixture['rooms']
-        for index in range(0, args.clients, 2):
-            if not rooms[index]:
-                own = await clients[index].call('conversations')
-                other = await clients[index + 1].call('conversations')
-                own_ids = {r['room_id'] for r in own['items'] if r.get('kind') == 'dm' and r.get('membership') == 'joined' and r.get('encryption') == 'standard'}
-                candidates = [r['room_id'] for r in other['items'] if r['room_id'] in own_ids and r.get('membership') in ('joined', 'invited') and identities[index]['user_id'] in r.get('creators', [])]
-                if len(candidates) > 1:
-                    raise ValueError('AMBIGUOUS_FIXTURE_DM: reconcile the synthetic pair before resuming')
-                if candidates:
-                    rooms[index] = rooms[index + 1] = candidates[0]
-                else:
-                    room = await clients[index].create_conversation([identities[index + 1]['user_id']])
-                    rooms[index] = rooms[index + 1] = room['room_id']
-            # Save the room before join; an ambiguous join can safely be resumed.
-            temporary = fixture_path.with_suffix('.tmp')
-            temporary.write_text(json.dumps({'clients': args.clients, 'origin': target['origin'], 'rooms': rooms}) + '\n')
-            temporary.replace(fixture_path)
-            peer_rooms = await clients[index + 1].call('conversations')
-            peer_room = next((r for r in peer_rooms['items'] if r['room_id'] == rooms[index]), {})
-            if peer_room.get('membership') != 'joined':
-                await clients[index + 1].call('accept', {'room_id': rooms[index]})
-            for participant in (index, index + 1):
-                joined = await clients[participant].call('conversations')
-                current = next((r for r in joined['items'] if r['room_id'] == rooms[index]), {})
-                if current.get('membership') != 'joined' or current.get('joined_member_count') != 2 or current.get('encryption') != 'standard' or current.get('kind') != 'dm':
-                    raise ValueError('FIXTURE_MEMBERSHIP_INCOMPLETE')
+        async def prepare_pair(index):
+            async with pair_limit:
+                if not rooms[index]:
+                    own = await clients[index].call('conversations')
+                    other = await clients[index + 1].call('conversations')
+                    own_ids = {r['room_id'] for r in own['items'] if r.get('kind') == 'dm' and r.get('membership') == 'joined' and r.get('encryption') == 'standard'}
+                    candidates = [r['room_id'] for r in other['items'] if r['room_id'] in own_ids and r.get('membership') in ('joined', 'invited') and identities[index]['user_id'] in r.get('creators', [])]
+                    if len(candidates) > 1:
+                        raise ValueError('AMBIGUOUS_FIXTURE_DM: reconcile the synthetic pair before resuming')
+                    if candidates:
+                        rooms[index] = rooms[index + 1] = candidates[0]
+                    else:
+                        room = await clients[index].create_conversation([identities[index + 1]['user_id']])
+                        rooms[index] = rooms[index + 1] = room['room_id']
+                # Save the room before join; an ambiguous join can safely be resumed.
+                temporary = fixture_path.with_suffix('.tmp')
+                temporary.write_text(json.dumps({'clients': args.clients, 'origin': target['origin'], 'rooms': rooms}) + '\n')
+                temporary.replace(fixture_path)
+                peer_rooms = await clients[index + 1].call('conversations')
+                peer_room = next((r for r in peer_rooms['items'] if r['room_id'] == rooms[index]), {})
+                if peer_room.get('membership') != 'joined':
+                    await clients[index + 1].call('accept', {'room_id': rooms[index]})
+                for participant in (index, index + 1):
+                    joined = await clients[participant].call('conversations')
+                    current = next((r for r in joined['items'] if r['room_id'] == rooms[index]), {})
+                    if current.get('membership') != 'joined' or current.get('joined_member_count') != 2 or current.get('encryption') != 'standard' or current.get('kind') != 'dm':
+                        raise ValueError('FIXTURE_MEMBERSHIP_INCOMPLETE')
+        pair_limit = asyncio.Semaphore(4)
+        async with asyncio.TaskGroup() as group:
+            for index in range(0, args.clients, 2):
+                group.create_task(prepare_pair(index))
         if args.prepare_only:
             result = {'run_id': identifier, 'fixture_id': fixture_id, 'status': 'fixtures_prepared', 'clients': args.clients, 'environment': target['environment'], 'native_binary_sha256': binary_sha256, 'measured': False}
             print(json.dumps(result), flush=True)
@@ -285,7 +297,7 @@ async def run(args) -> dict:
         latency = metric(e2e_latencies)
         result = {'run_id': identifier, 'fixture_id': fixture_id, 'environment': target['environment'], 'hardware': target['hardware'], 'clients': args.clients, 'duration_seconds': args.duration, 'target_messages_per_second': args.rate, 'planned_messages': planned, 'accepted_messages': len(accepted), 'observed_acknowledged_messages': matched, 'missing_acknowledged_messages': len(accepted) - matched, 'duplicate_sequences': len(duplicate_sequences), 'failures': failures, **state, 'send_acknowledgement_latency': metric(ack_latencies), 'end_to_end_latency': latency, 'elapsed_including_drain_seconds': round(time.monotonic() - started, 3)}
         result['checks'] = evaluate(clients=args.clients, duration=args.duration, rate=args.rate, planned=planned, accepted=len(accepted), observed=matched, missed_slots=state['missed_slots'], failed=len(failures), duplicates=len(duplicate_sequences), latency=latency, environment=target['environment'])
-        result['generator'] = {'tokio_workers_per_runtime': 2, 'setup_concurrency': 2, 'process_start_spacing_seconds': .5, 'store_and_sync_warmup_before_timer': True, 'setup_timeout_seconds': 90, 'measurement_rpc_timeout_seconds': 30}
+        result['generator'] = {'tokio_workers_per_runtime': 2, 'setup_concurrency': 2, 'pair_validation_concurrency': 4, 'process_start_spacing_seconds': .5, 'store_and_sync_warmup_before_timer': True, 'setup_timeout_seconds': 90, 'measurement_rpc_timeout_seconds': 30}
         result['generator']['inbox_mode'] = args.inbox_mode
         result['native_binary_sha256'] = binary_sha256
         result['rpc_diagnostics'] = {name: metric(values) for name, values in rpc_diagnostics.items()}

@@ -27,6 +27,7 @@ export class Zavliq extends EventEmitter {
   private sequence = 0;
   private buffer = '';
   private closed = false;
+  private terminalNotified = false;
   private readonly timeout: number;
 
   constructor(options: Options = {}) {
@@ -40,8 +41,13 @@ export class Zavliq extends EventEmitter {
     this.child.stdout.on('data', (chunk: string) => this.consume(chunk));
     // Runtime stderr is deliberately not surfaced to model-facing callers.
     this.child.stderr.resume();
-    this.child.on('error', () => { this.closed = true; this.failAll(new ZavliqError('RUNTIME_UNAVAILABLE', 'Unable to start zavliq. Install the native runtime or set ZAVLIQ_BINARY.')); });
-    this.child.on('exit', () => { this.closed = true; this.failAll(new ZavliqError('RUNTIME_CLOSED', 'Runtime exited. Check whether another runtime owns this identity directory.')); });
+    this.child.on('error', () => { this.closed = true; this.failAll(new ZavliqError('RUNTIME_UNAVAILABLE', 'Unable to start zavliq. Install the native runtime or set ZAVLIQ_BINARY.')); this.notifyClosed(); });
+    this.child.on('exit', () => { this.closed = true; this.failAll(new ZavliqError('RUNTIME_CLOSED', 'Runtime exited. Check whether another runtime owns this identity directory.')); this.notifyClosed(); });
+  }
+  private notifyClosed(): void {
+    if (this.terminalNotified) return;
+    this.terminalNotified = true;
+    this.emit('notification', {method: 'connection_state', params: {connected: false, closed: true, code: 'RUNTIME_CLOSED', action: 'Create a new client connection; the identity and inbox remain on disk.'}});
   }
   private failAll(error: Error): void {
     for (const request of this.pending.values()) { clearTimeout(request.timer); request.reject(error); }
@@ -89,7 +95,8 @@ export class Zavliq extends EventEmitter {
   pairComplete(): Promise<Record<string, unknown>> { return this.call('pairing_complete'); }
   identity(): Promise<Identity> { return this.call('identity'); }
   send(message: Send): Promise<Accepted> { return this.call('send', {...message, idempotency_key: message.idempotency_key ?? randomUUID()}); }
-  inbox(cursor = 0, limit = 10): Promise<Inbox> { return this.call('inbox', {cursor, limit}); }
+  /** Set sync:false after a notification to drain the last synchronized local snapshot. */
+  inbox(cursor = 0, limit = 10, options: {sync?: boolean} = {}): Promise<Inbox> { return this.call('inbox', {cursor, limit, sync: options.sync ?? true}); }
   wait(cursor = 0, timeoutSeconds = 30): Promise<Inbox> { return this.call('wait', {cursor, timeout_seconds: timeoutSeconds}); }
   createConversation(members: string[], options: {kind?: 'dm'|'group'|'channel'; encryption?: 'standard'|'e2ee'; name?: string} = {}): Promise<{room_id: string}> {
     return this.call('create_conversation', {members, ...options});

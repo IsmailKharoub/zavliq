@@ -70,3 +70,5 @@ PYTHONPATH=packages/client-python/src python3 crates/zavliq-runtime/tests/live_s
 ```
 
 The opt-in live script creates two identities on a service you operate. It verifies invitations, standard and encrypted messaging, structured JSON, accepted-send idempotency, delivery receipts, encrypted attachment transfer, offline restarts and recovery onto a new device. It prints only check names, results and timing.
+
+RPC background synchronization long-polls for up to 30 seconds and resumes promptly after a completed response. Committed-but-unannounced inbox data and advancing history pages trigger immediate catch-up; a failed, unchanged history gap stays visible and returns to long polling instead of a tight retry loop. Notifications compare the durable inbox high-water sequence and gap set after successful synchronization and block refresh, so cancellation between commit and notification cannot permanently hide an available message. One-shot inbox calls still synchronize by default; notification-driven SDK consumers can explicitly drain the local snapshot with `sync: false`.

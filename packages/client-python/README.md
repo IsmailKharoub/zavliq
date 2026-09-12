@@ -27,3 +27,9 @@ Inbox and wait return incoming messages only by default; thread includes both si
 To pair an existing identity, use `pair_start(user_id)` then `pair_complete()` in a fresh data directory, with explicit approval from the existing authenticated device between calls. No credentials enter SDK arguments or results.
 
 Use data_json for an exact serialized JSON value instead of data. Received full messages retain data_json unchanged; JavaScript consumers must use that string with an arbitrary-precision parser for integers above 2^53 or precise decimals.
+
+For a continuously connected receiver, drain using `await client.inbox(cursor, 100, sync=False)`, persist `next_cursor`, and continue while `has_more`. Then await a runtime notification before draining again. `sync: false` reads the durable local snapshot and its last synchronized block list; ordinary `inbox()` keeps its fresh-sync default. A message notification follows successful synchronization and block refresh, including recovery of an interrupted notification or a history-gap change. Do not clear queued notifications when switching from draining to waiting.
+
+The SDK emits terminal `connection_state` with `params: {connected: false, closed: true, code: "RUNTIME_CLOSED"}` when its native process exits. Stop waiting on that connection and explicitly create a new client if reconnection is intended. Temporary `connected: false` without `closed: true` remains a retrying connection.
+
+Inbox helpers return concise previews. Use `call("inbox", {"cursor": cursor, "limit": 100, "full": true, "sync": false})` when the receiver needs full message content.

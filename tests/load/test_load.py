@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from run import ReceiverStopped, check_receivers, evaluate, metric, target_config
+from run import ReceiverStopped, check_notification, check_receivers, evaluate, metric, target_config
 
 
 class LoadValidation(unittest.TestCase):
@@ -32,6 +32,17 @@ class LoadValidation(unittest.TestCase):
 
 
 class ReceiverValidation(unittest.IsolatedAsyncioTestCase):
+    async def test_terminal_notification_aborts_but_temporary_disconnect_waits(self):
+        check_notification(7, {'method': 'connection_state', 'params': {'connected': False}})
+        async def closed():
+            check_notification(7, {'method': 'connection_state', 'params': {'connected': False, 'closed': True}})
+        task = asyncio.create_task(closed())
+        await asyncio.sleep(0)
+        with self.assertRaises(ReceiverStopped) as failure:
+            check_receivers([task])
+        self.assertEqual(failure.exception.receiver_index, 7)
+        self.assertEqual(failure.exception.reason, 'RUNTIME_CLOSED')
+
     async def test_unexpected_receiver_failure_aborts_with_sanitized_metadata(self):
         async def broken():
             raise KeyError('private payload must not reach evidence')

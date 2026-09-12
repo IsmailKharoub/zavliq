@@ -182,6 +182,20 @@ impl Store {
             .map(|raw| serde_json::from_str(&raw).map_err(Into::into))
             .transpose()
     }
+    pub fn high_water(&self) -> Result<i64> {
+        Ok(self
+            .db
+            .query_row("SELECT COALESCE(MAX(seq),0) FROM events", [], |row| {
+                row.get(0)
+            })?)
+    }
+    pub fn gap_rooms(&self) -> Result<Vec<String>> {
+        Ok(self
+            .db
+            .prepare("SELECT room_id FROM gaps ORDER BY room_id")?
+            .query_map([], |row| row.get(0))?
+            .collect::<std::result::Result<_, _>>()?)
+    }
     pub fn commit_recovery(
         &mut self,
         cursor: &str,

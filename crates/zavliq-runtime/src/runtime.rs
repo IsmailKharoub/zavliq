@@ -342,7 +342,11 @@ impl Runtime {
                     // response whose client processing may have been cancelled.
                     // Every recovery request follows the durable phase marker.
                     .full_state(recovery_cursor.is_some())
-                    .timeout(Duration::from_secs(wait_seconds.min(30))),
+                    .timeout(Duration::from_secs(if recovery_cursor.is_some() {
+                        0
+                    } else {
+                        wait_seconds.min(30)
+                    })),
             )
             .await?;
         if response.next_batch.is_empty() {
@@ -403,11 +407,12 @@ impl Runtime {
                 Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut history_progress = false;
         for (room_id, token) in pending {
             let id: OwnedRoomId = room_id.as_str().try_into()?;
             if let Some(room) = client.get_room(&id) {
                 let mut options = matrix_sdk::room::MessagesOptions::backward();
-                options.from = token;
+                options.from = token.clone();
                 options.limit = 100u32.into();
                 if let Ok(page) = room.messages(options).await {
                     let mut previous = Vec::new();
@@ -423,6 +428,7 @@ impl Runtime {
                     count += self
                         .store
                         .commit_history(commit_cursor, &previous, &room_id, next)?;
+                    history_progress |= next != token.as_deref() || next.is_none();
                 }
             }
         }
@@ -443,14 +449,9 @@ impl Runtime {
                 }
             }
         }
-        let remaining_gaps = self
-            .store
-            .db
-            .prepare("SELECT room_id FROM gaps")?
-            .query_map([], |row| row.get::<_, String>(0))?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let remaining_gaps = self.store.gap_rooms()?;
         Ok(
-            json!({"received":count,"requests":client.invited_rooms().len(),"connected":true,"history_gap_rooms":remaining_gaps}),
+            json!({"received":count,"inbox_high_water":self.store.high_water()?,"history_progress":history_progress,"requests":client.invited_rooms().len(),"connected":true,"history_gap_rooms":remaining_gaps}),
         )
     }
     async fn room(&mut self, room_id: &str) -> Result<matrix_sdk::Room> {

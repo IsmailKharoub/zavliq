@@ -58,14 +58,17 @@ class Zavliq:
                 future.set_exception(error)
         self._pending.clear()
 
+    def _notify(self, message):
+        if self.notifications.full():
+            self.notifications.get_nowait()
+        self.notifications.put_nowait(message)
+
     async def _read(self):
         try:
             while line := await self._process.stdout.readline():
                 message = json.loads(line)
                 if "method" in message and "id" not in message:
-                    if self.notifications.full():
-                        self.notifications.get_nowait()
-                    self.notifications.put_nowait(message)
+                    self._notify(message)
                     continue
                 future = self._pending.pop(message.get("id"), None)
                 if future is None or future.done():
@@ -81,6 +84,9 @@ class Zavliq:
         finally:
             self._closed = True
             self._fail(ZavliqError("RUNTIME_CLOSED", "Runtime exited. Check whether another process owns this identity directory."))
+            self._notify({"method": "connection_state", "params": {
+                "connected": False, "closed": True, "code": "RUNTIME_CLOSED",
+                "action": "Create a new client connection; the identity and inbox remain on disk."}})
 
     async def call(self, method: str, params: dict[str, Any] | None = None) -> Any:
         await self._start()
@@ -123,8 +129,9 @@ class Zavliq:
             params["reply_to"] = reply_to
         return await self.call("send", params)
 
-    async def inbox(self, cursor: int = 0, limit: int = 10):
-        return await self.call("inbox", {"cursor": cursor, "limit": limit})
+    async def inbox(self, cursor: int = 0, limit: int = 10, *, sync: bool = True):
+        """Read incoming previews; sync=False drains the last synchronized local snapshot."""
+        return await self.call("inbox", {"cursor": cursor, "limit": limit, "sync": sync})
 
     async def wait(self, cursor: int = 0, timeout_seconds: int = 30):
         return await self.call("wait", {"cursor": cursor, "timeout_seconds": timeout_seconds})
