@@ -3,6 +3,13 @@ data "aws_caller_identity" "current" {}
 locals {
   name          = "zavliq-${var.environment}"
   backup_bucket = "${local.name}-backups-${data.aws_caller_identity.current.account_id}"
+  # A replacement is opt-in. The original resource and its disks stay in state.
+  active_instance = var.active_instance == "replacement" && var.replacement_instance_name != null ? one(aws_lightsail_instance.replacement) : aws_lightsail_instance.app
+  public_ports = [
+    { port = 80, protocol = "tcp" },
+    { port = 443, protocol = "tcp" },
+    { port = 443, protocol = "udp" },
+  ]
 }
 
 resource "aws_lightsail_instance" "app" {
@@ -24,7 +31,15 @@ resource "aws_lightsail_static_ip" "app" {
 
 resource "aws_lightsail_static_ip_attachment" "app" {
   static_ip_name = aws_lightsail_static_ip.app.id
-  instance_name  = aws_lightsail_instance.app.id
+  instance_name  = local.active_instance.id
+  # Close the original host's public ingress before transferring the address.
+  depends_on = [aws_lightsail_instance_public_ports.app, aws_lightsail_instance_public_ports.replacement]
+  lifecycle {
+    precondition {
+      condition     = var.active_instance == "original" || (var.replacement_instance_name != null && var.replacement_cutover_confirmed)
+      error_message = "Replacement cutover requires an explicitly named host, a final consistent snapshot taken after the public-write fence, stopped original core and successful private restored-core checks."
+    }
+  }
 }
 
 resource "aws_lightsail_instance_public_ports" "app" {
@@ -35,23 +50,14 @@ resource "aws_lightsail_instance_public_ports" "app" {
     protocol  = "tcp"
     cidrs     = var.admin_cidrs
   }
-  port_info {
-    from_port = 80
-    to_port   = 80
-    protocol  = "tcp"
-    cidrs     = ["0.0.0.0/0"]
-  }
-  port_info {
-    from_port = 443
-    to_port   = 443
-    protocol  = "tcp"
-    cidrs     = ["0.0.0.0/0"]
-  }
-  port_info {
-    from_port = 443
-    to_port   = 443
-    protocol  = "udp"
-    cidrs     = ["0.0.0.0/0"]
+  dynamic "port_info" {
+    for_each = var.active_instance == "original" ? local.public_ports : []
+    content {
+      from_port = port_info.value.port
+      to_port   = port_info.value.port
+      protocol  = port_info.value.protocol
+      cidrs     = ["0.0.0.0/0"]
+    }
   }
 }
 
@@ -142,7 +148,7 @@ resource "aws_iam_role_policy" "github" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["lightsail:GetInstanceAccessDetails", "lightsail:GetInstance", "lightsail:OpenInstancePublicPorts", "lightsail:CloseInstancePublicPorts"], Resource = aws_lightsail_instance.app.arn },
+      { Effect = "Allow", Action = ["lightsail:GetInstanceAccessDetails", "lightsail:GetInstance", "lightsail:OpenInstancePublicPorts", "lightsail:CloseInstancePublicPorts"], Resource = local.active_instance.arn },
       # GetOperation has no resource-level IAM support; limit the read to our fixed region.
       # https://docs.aws.amazon.com/service-authorization/latest/reference/list_lightsail.html
       { Effect = "Allow", Action = ["lightsail:GetOperation"], Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = "us-east-1" } } },

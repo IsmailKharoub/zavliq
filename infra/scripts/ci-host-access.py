@@ -11,7 +11,6 @@ import subprocess
 import tempfile
 import time
 
-INSTANCE = 'zavliq-production'
 REGION = 'us-east-1'
 OPERATION_SECONDS = 120
 SUCCESS = {'Completed', 'Succeeded'}
@@ -44,9 +43,21 @@ def aws(*arguments, deadline):
     return json.loads(result.stdout)
 
 
-def ports(deadline):
-    instance = aws('get-instance', '--instance-name', INSTANCE, deadline=deadline)['instance']
-    if instance.get('name') != INSTANCE:
+def validate_identity(instance, instance_arn, account_id):
+    """Validate protected deployment inputs without reading environment or AWS."""
+    if (not isinstance(instance, str) or len(instance) > 63 or
+            re.fullmatch(r'zavliq-production(?:-recovery-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?', instance) is None or
+            not isinstance(account_id, str) or re.fullmatch(r'[0-9]{12}', account_id) is None or
+            not isinstance(instance_arn, str) or
+            re.fullmatch(r'arn:aws:lightsail:' + REGION + ':' + account_id + r':Instance/[A-Za-z0-9_-]{1,128}', instance_arn) is None):
+        raise AccessError('EXACT_PRODUCTION_INSTANCE_IDENTITY_REQUIRED')
+    return {'instance': instance, 'instance_arn': instance_arn, 'account_id': account_id}
+
+
+def ports(identity, deadline):
+    validate_identity(identity.get('instance'), identity.get('instance_arn'), identity.get('account_id'))
+    instance = aws('get-instance', '--instance-name', identity['instance'], deadline=deadline)['instance']
+    if instance.get('name') != identity['instance'] or instance.get('arn') != identity['instance_arn']:
         raise AccessError('PRODUCTION_INSTANCE_MISMATCH')
     return instance['networking']['ports']
 
@@ -105,7 +116,7 @@ def record_operation(directory, state, kind, value, expected_id=None):
     if (not isinstance(operation_id, str) or
             not re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}', operation_id) or
             (expected_id is not None and operation_id != expected_id) or
-            value.get('resourceName') != INSTANCE or value.get('resourceType') != 'Instance' or
+            value.get('resourceName') != state['instance'] or value.get('resourceType') != 'Instance' or
             value.get('operationType') != kind.title() + 'InstancePublicPorts' or
             value.get('location', {}).get('regionName') != REGION or
             type(value.get('isTerminal')) is not bool or
@@ -135,32 +146,38 @@ def wait_operation(directory, state, kind, deadline):
 
 
 def change_rule(kind, directory, state, deadline):
+    # A name can be reused after an instance is deleted. Never change its
+    # replacement's firewall using an old name-bound operation journal.
+    ports(state, deadline)
     # A persisted unknown request must survive a lost response/CLI timeout.
     state[kind + '_operation'] = {'id': None, 'status': 'Unknown', 'is_terminal': False}
     write_state(directory, state)
     info = {'fromPort': 22, 'toPort': 22, 'protocol': 'tcp', 'cidrs': [state['cidr']]}
-    value = aws(kind + '-instance-public-ports', '--instance-name', INSTANCE,
+    value = aws(kind + '-instance-public-ports', '--instance-name', state['instance'],
                 '--port-info', json.dumps(info), deadline=deadline)['operation']
     record_operation(directory, state, kind, value)
     if not wait_operation(directory, state, kind, deadline):
         raise AccessError('SSH_OPERATION_FAILED_RETAIN_JOURNAL')
-    confirm_ports(kind, state['cidr'], deadline)
+    confirm_ports(kind, state, deadline)
 
 
-def confirm_ports(kind, cidr, deadline):
-    while exact_rule_exists(ports(deadline), cidr) != (kind == 'open'):
+def confirm_ports(kind, state, deadline):
+    while exact_rule_exists(ports(state, deadline), state['cidr']) != (kind == 'open'):
         deadline.pause()
 
 
-def open_access(directory, deadline=None):
+def open_access(directory, *, instance, instance_arn, account_id, deadline=None):
     deadline = deadline or Deadline()
+    identity = validate_identity(instance, instance_arn, account_id)
     directory.mkdir(mode=0o700, parents=True, exist_ok=False)
+    # Verify the exact protected resource before requesting SSH credentials or
+    # changing access. This response also provides the current borrowed rules.
+    rules = ports(identity, deadline)
     cidr = runner_cidr(deadline)
-    borrowed = already_allowed(ports(deadline), cidr)
-    state = {'schema': 'zavliq-ci-host-access-v1', 'instance': INSTANCE, 'cidr': cidr,
-             'close_required': False}
+    borrowed = already_allowed(rules, cidr)
+    state = {'schema': 'zavliq-ci-host-access-v2', **identity, 'cidr': cidr, 'close_required': False}
     write_state(directory, state)
-    subprocess.run(['python3', str(Path(__file__).with_name('prepare-ssh.py')), '--instance', INSTANCE,
+    subprocess.run(['python3', str(Path(__file__).with_name('prepare-ssh.py')), '--instance', identity['instance'],
                     '--directory', str(directory / 'ssh')], check=True, capture_output=True,
                    text=True, timeout=deadline.remaining(60))
     if not borrowed:
@@ -178,13 +195,21 @@ def close_access(directory, deadline=None):
     if directory.is_symlink() or path.is_symlink() or path.stat().st_size > 4096:
         raise AccessError('PRIVATE_RULE_JOURNAL_REQUIRED')
     state = json.loads(path.read_text())
-    if state.get('schema') != 'zavliq-ci-host-access-v1' or state.get('instance') != INSTANCE or type(state.get('close_required')) is not bool:
+    if state.get('schema') != 'zavliq-ci-host-access-v2' or type(state.get('close_required')) is not bool:
         raise AccessError('INVALID_RULE_JOURNAL')
+    try:
+        validate_identity(state.get('instance'), state.get('instance_arn'), state.get('account_id'))
+    except AccessError as error:
+        raise AccessError('INVALID_RULE_JOURNAL') from error
     network = ipaddress.IPv4Network(state['cidr'])
     if network.prefixlen != 32 or not network.network_address.is_global:
         raise AccessError('RUNNER_RULE_REQUIRED')
     if not state['close_required']:
         return {'cleanup': 'no_owned_rule'}
+
+    # Cleanup uses the original journal, never the current workflow environment.
+    # Refuse even a matching old operation ID if this name now has another ARN.
+    ports(state, deadline)
 
     opening = state.get('open_operation', {})
     unknown_open = not opening.get('id')
@@ -194,7 +219,7 @@ def close_access(directory, deadline=None):
         wait_operation(directory, state, 'open', deadline)
     closing = state.get('close_operation', {})
     if closing.get('id') and wait_operation(directory, state, 'close', deadline):
-        confirm_ports('close', str(network), deadline)
+        confirm_ports('close', state, deadline)
     else:
         # Retrying an unknown/failed close is safe: a delayed close cannot reopen SSH.
         change_rule('close', directory, state, deadline)
@@ -208,12 +233,21 @@ def close_access(directory, deadline=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['open', 'close'])
-    parser.add_argument('--directory', type=Path, required=True)
+    operations = parser.add_subparsers(dest='operation', required=True)
+    opening = operations.add_parser('open')
+    opening.add_argument('--directory', type=Path, required=True)
+    opening.add_argument('--instance', required=True)
+    opening.add_argument('--instance-arn', required=True)
+    opening.add_argument('--account-id', required=True)
+    closing = operations.add_parser('close')
+    closing.add_argument('--directory', type=Path, required=True)
     args = parser.parse_args()
     os.umask(0o077)
     try:
-        print(json.dumps((open_access if args.operation == 'open' else close_access)(args.directory.absolute())))
+        result = (open_access(args.directory.absolute(), instance=args.instance,
+                              instance_arn=args.instance_arn, account_id=args.account_id)
+                  if args.operation == 'open' else close_access(args.directory.absolute()))
+        print(json.dumps(result))
     except Exception as error:
         code = str(error) if isinstance(error, AccessError) else 'SSH_ACCESS_FAILED_RETAIN_JOURNAL'
         print(json.dumps({'ok': False, 'code': code, 'error_class': type(error).__name__,

@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 30
     env:
       INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+      INSTANCE_ARN: ${{ vars.LIGHTSAIL_INSTANCE_ARN }}
       DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
       EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
       BUCKET: ${{ vars.BACKUP_BUCKET }}
@@ -31,10 +32,10 @@ jobs:
         timeout-minutes: 1
         run: |
           python3 - <<'PY'
-          import os,re
+          import os,re,runpy
           account = os.environ['EXPECTED_ACCOUNT']
-          if not re.fullmatch(r'[0-9]{12}', account) or os.environ['INSTANCE'] != 'zavliq-production':
-              raise SystemExit('Production instance/account required')
+          runpy.run_path('infra/scripts/ci-host-access.py')['validate_identity'](
+              os.environ['INSTANCE'], os.environ['INSTANCE_ARN'], account)
           if os.environ['DEPLOY_ROLE'] != 'arn:aws:iam::'+account+':role/zavliq-production-github':
               raise SystemExit('Production role mismatch')
           if os.environ['BUCKET'] != 'zavliq-production-backups-'+account:
@@ -52,7 +53,9 @@ jobs:
           action-timeout-s: 120
       - name: Prepare temporary verified SSH access
         timeout-minutes: 3
-        run: python3 infra/scripts/ci-host-access.py open --directory "$RUNNER_TEMP/zavliq-access"
+        run: >-
+          python3 infra/scripts/ci-host-access.py open --directory "$RUNNER_TEMP/zavliq-access"
+          --instance "$INSTANCE" --instance-arn "$INSTANCE_ARN" --account-id "$EXPECTED_ACCOUNT"
       - name: Retrieve encrypted backup and verify private S3 upload
         timeout-minutes: 10
         run: |
