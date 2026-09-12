@@ -1,0 +1,139 @@
+{
+  "scope": "authenticated-private-draft-artifact-installation",
+  "source_sha": "0c317bcc52e54c3248f5eb66ac8d6e89f7918276",
+  "workflow_run": 34672818966,
+  "workflow_run_url": "https://github.com/IsmailKharoub/zavliq/actions/runs/34672818966",
+  "run_attempt": 1,
+  "version": "v0.1.0",
+  "checked_at": "2026-09-12T04:47:57.650157+00:00",
+  "platform": {
+    "os": "macOS",
+    "os_version": "15.6.1",
+    "architecture": "arm64",
+    "native_declared_minimum_macos": "13.0",
+    "minimum_os_execution_tested": false,
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "python": "3.14.7"
+  },
+  "provenance": {
+    "artifact_digest_verified": true,
+    "package_job": 103497298387,
+    "package_artifact": 10291321967,
+    "package_artifact_zip_sha256": "7fd8475d86694c2b6065f37e0360f0d1d80073fc526b7dcca9bed7a56dcbe0d5",
+    "macos_job": 103497298522,
+    "macos_artifact": 10291547002,
+    "macos_artifact_zip_sha256": "5a2e0e8421e3068ae97b8e25ea0160b731182c1f125b57a44686073a272f1e4e",
+    "linux_job": 103497298470,
+    "linux_artifact": 10292155406,
+    "linux_artifact_zip_sha256": "1abe4f3f98874c144b852208bb9606ee2ed9ce9b52503be247f6f463693a88ef",
+    "draft_job": 103500205604
+  },
+  "asset_sha256": {
+    "install.sh": "4e5f63bcd92ef2828e91f5be1e9c49a62d92bb1469cd4ed287890ded34dfaaaf",
+    "skill.md": "946e31b11270935ea44bd0a0c7a9b24a091e63232058ec9d36ec82105ce4723c",
+    "zavliq-0.1.0-py3-none-any.whl": "4e930cb3047f4c61655bbd5b05ea3db99e847af4d425f2cdea20448f317d2642",
+    "zavliq-client-0.1.0.tgz": "3adffeedad571090b60c44b9b80fd435230f16a0e4bffd03a947307ad8dfd1c9",
+    "zavliq-mcp-0.1.0.tgz": "c9e1737f7d9f4476a6a09d6c8f42c58c37c8dc354eaa0c613b358af7ea3eb305",
+    "zavliq-node-0.1.0.tar.gz": "7d76dc832a8e56ae61eebb71cc6c95307e855f613d39ed2411d458eb3c8c9c73",
+    "zavliq-v0.1.0-aarch64-apple-darwin.tar.gz": "478b11ec355ee8fa30af717f12c59f819b550e5b163d9975d5786360bccbb860",
+    "zavliq-v0.1.0-x86_64-unknown-linux-gnu.tar.gz": "d393dab6165a0661fa771f067463cd826799c7377b79dfc32800f46c84a9b1c8"
+  },
+  "manifest_sha256": "b9a9b3c167c0d678cb2152522631cbfa63da5d6f115feeaf50207f984df2dc20",
+  "native_binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+  "linux_binary_sha256": "b5f3e57b4bd0df443df9a0dab0e9472f73df3dc7b7736712c46d4b0b67854ada",
+  "draft": {
+    "database_id": 387457474,
+    "is_draft": true,
+    "is_prerelease": true,
+    "target_commitish": "0c317bcc52e54c3248f5eb66ac8d6e89f7918276",
+    "tag_name": "v0.1.0",
+    "published_at": null,
+    "all_eight_assets_downloaded_and_verified": true,
+    "actions_and_release_asset_bytes_identical": true
+  },
+  "readiness_provenance_mapping": {
+    "tested_source_sha": "a06594895f876324c6b81e0fa9b190ca4c0a9439",
+    "tested_workflow_run": 34671918085,
+    "all_package_extracted_payloads_identical": true,
+    "macos_extracted_payload_identical": true,
+    "installed_node_and_python_source_files_rechecked_against_current_payloads": true,
+    "note": "Reuses the authenticated isolated-install and SDK/MCP readiness checks because all executable/package payloads match byte for byte. New archive hashes and final run/job/artifact provenance are verified separately. No build-from-checkout fallback."
+  },
+  "checks": {
+    "node_relocated_install": {
+      "passed": true,
+      "method": "npm ci --ignore-scripts --no-audit --no-fund",
+      "source_import_fallback": false
+    },
+    "python_isolated_wheel": {
+      "passed": true,
+      "method": "venv; pip install --no-index --no-deps downloaded.whl; isolated-mode import",
+      "source_import_fallback": false
+    },
+    "native_version_and_methods": {
+      "passed": true
+    },
+    "node_sdk_native_local_operations": {
+      "passed": true
+    },
+    "python_sdk_native_local_operations": {
+      "passed": true
+    },
+    "mcp": {
+      "passed": true,
+      "initialized": true,
+      "tool_count": 17,
+      "tool_names": [
+        "zavliq_block",
+        "zavliq_conversations",
+        "zavliq_create",
+        "zavliq_crypto",
+        "zavliq_directory",
+        "zavliq_flush",
+        "zavliq_identity",
+        "zavliq_inbox",
+        "zavliq_init",
+        "zavliq_membership",
+        "zavliq_pairing",
+        "zavliq_publisher",
+        "zavliq_receipt",
+        "zavliq_send",
+        "zavliq_thread",
+        "zavliq_transfer",
+        "zavliq_wait"
+      ],
+      "schemas_sha256": "f8bed13c083d47d0fca659913280b512298357acc005d8cb20f9e16077822263",
+      "uninitialized_identity_rejected": true
+    }
+  },
+  "new_frozen_binary_local_check": {
+    "version": "zavliq 0.1.0",
+    "methods_succeeded": true,
+    "methods_sha256": "19dd3d449170b30a403e0594e4859f28545eb9a90d48ccde45f420891569077d",
+    "os_version": "15.6.1",
+    "architecture": "arm64",
+    "registration_calls": 0,
+    "message_calls": 0
+  },
+  "registration_calls": 0,
+  "message_calls": 0,
+  "anonymous_public_installation_verified": false,
+  "linux_local_client_execution_verified": false,
+  "linux_native_methods_verified_by_release_job": true,
+  "final_draft_manifest_verified": true,
+  "source_diff": {
+    "prior_source_sha": "a06594895f876324c6b81e0fa9b190ca4c0a9439",
+    "current_source_sha": "0c317bcc52e54c3248f5eb66ac8d6e89f7918276",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "apps/web/public/install.md",
+      "apps/web/public/protocol.md",
+      "apps/web/src/App.tsx",
+      "docs/install.md",
+      "docs/protocol.md",
+      "infra/docker/web.Dockerfile"
+    ],
+    "native_sdk_packaging_source_unchanged": true
+  }
+}
