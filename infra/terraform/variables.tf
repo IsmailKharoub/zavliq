@@ -51,7 +51,7 @@ variable "lightsail_key_pair_name" {
 
 variable "alert_email" {
   type        = string
-  description = "Operator email for budget and host-availability notifications."
+  description = "Operator email for production host-availability notifications; the account budget is managed separately."
 }
 
 variable "route53_zone_id" {

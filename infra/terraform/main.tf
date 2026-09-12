@@ -152,21 +152,6 @@ resource "aws_iam_role_policy" "github" {
   })
 }
 
-resource "aws_budgets_budget" "monthly" {
-  name         = "${local.name}-monthly"
-  budget_type  = "COST"
-  limit_amount = "100"
-  limit_unit   = "USD"
-  time_unit    = "MONTHLY"
-  # Account-wide alerts intentionally include all costs rather than miss untagged traffic.
-  dynamic "notification" {
-    for_each = [50, 75, 90]
-    content {
-      comparison_operator        = "GREATER_THAN"
-      threshold                  = notification.value
-      threshold_type             = "ABSOLUTE_VALUE"
-      notification_type          = "ACTUAL"
-      subscriber_email_addresses = [var.alert_email]
-    }
-  }
-}
+# The account-wide $100 budget covers production and staging together. It is
+# owned by ../terraform-notifications as zavliq-account-monthly; this module
+# must not create another budget or take over that module's state.
