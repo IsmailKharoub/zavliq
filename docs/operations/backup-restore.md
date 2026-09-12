@@ -16,6 +16,8 @@ The current private AWS staging deployment uses the separate 48-hour, fixed-obje
 
 ## Fresh-target recovery drill
 
+Keep production serving during isolated preparation and rehearsal. Complete preflight before any separately scheduled, bounded service interruption, with an explicit abort/resumption path. The [September 12 aborted production drill](recovery-host.md#september-12-2026-aborted-production-drill) restored the original service; its verified backup remains historical evidence, and the production recovery gate is still pending. Do not automatically resume that attempt or use its snapshot as a later final cutover state.
+
 1. Record the timer start, original server-name and source release. Provision an isolated host with the same architecture and PostgreSQL major version. Keep its DNS disconnected from the original network.
 2. Download a selected `.tar.age` and checksum from S3 using operator access. Verify SHA-256 before decrypting; retain the exact source release images so schemas match. Never restore an unknown archive.
 3. Follow the [production replacement procedure](../../infra/production/README.md#restore-an-existing-public-network-on-a-fresh-replacement-host). Use an empty replacement Docker daemon and retain the original `zavliq-production` project, `zavliq.com` server name and canonical HTTPS origin. Do not initialize new secrets or start containers. Upload the exact protected public bundle and prepare only the reviewed private operations configuration.

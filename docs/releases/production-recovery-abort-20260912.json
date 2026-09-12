@@ -1,0 +1,57 @@
+{
+  "schema": "zavliq.production-recovery-abort.v1",
+  "phase": "drill_aborted_original_service_resumed",
+  "service_resumed": true,
+  "recovery_verified": false,
+  "full_launch_verified": false,
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "website_revision": "98e3f8997166d1b9debbb131cfe821af962c8c8a",
+  "observations": {
+    "public_connection_refused_at": "2026-09-12T18:13:20.148677+00:00",
+    "canonical_https_ready_at": "2026-09-12T18:38:04.927943+00:00",
+    "original_services_and_timers_resumed_at": "2026-09-12T18:38:16.744460+00:00",
+    "first_external_homepage_success_at": "2026-09-12T18:38:27.835384+00:00",
+    "elapsed_between_refusal_and_external_success_seconds": 1507.686707,
+    "measurement_scope": "Elapsed between recorded refusal and first external successful homepage read, not continuous observation; no local monotonic outage-start was recorded."
+  },
+  "checks": {
+    "same_original_container_ids_images_and_mounts": true,
+    "same_base_and_website_release_markers": true,
+    "four_original_timers_enabled_and_active": true,
+    "fresh_health_and_stats_oneshots_succeeded": true,
+    "six_canonical_https_endpoints_succeeded": true,
+    "original_route_unchanged": true,
+    "replacement_payload_uploaded": false,
+    "replacement_restored": false,
+    "canonical_cutover_performed": false,
+    "original_client_state_reset": false,
+    "historical_snapshot_restored_over_original": false
+  },
+  "subsequent_external_check": {
+    "checked_at": "2026-09-12T18:44:28.382622+00:00",
+    "homepage_health_and_stats_status": 200,
+    "stats_collected_at": "2026-09-12T18:43:16Z",
+    "scope": "Fresh aggregate statistics demonstrate the restored timer ran after manual resumption; HTTP health alone does not verify message delivery."
+  },
+  "backup": {
+    "encrypted_snapshot_preserved": true,
+    "independent_off_host_readback_verified": true,
+    "local_isolated_resealing_completed": true,
+    "primary_identity_and_transport_key_remained_off_aws": true,
+    "snapshot_valid_as_future_final_cutover_state": false
+  },
+  "public_notice_closed_at": "2026-09-12T18:40:01Z",
+  "availability_followup": "Keep production serving during isolated recovery preparation and rehearsal. Do not automatically resume this aborted attempt. Any future live interruption requires completed preflight, a separate bounded maintenance operation and an explicit abort/resumption path.",
+  "private_evidence_sha256": {
+    "resumption_verification": "10310fdfb3f820e95c05b3cb69fc8dc82a88f947e5b298b4f18d269c24fc62b6",
+    "external_http": "c1166ee30e66404cd68172dabc2c64b8eeacf3291b75213084b02e0b813a65b9",
+    "subsequent_external_http": "0064800a8e0f941b13272fee230b44eb28d4af8b5dd9a70694f4f01e7fb144cd",
+    "public_notice_closure": "e3b8f811af4cf231f7e3968567aeb0da7954464c09cf18daeda6cde6424fa396"
+  },
+  "remaining": [
+    "Isolated full recovery rehearsal and a separately scheduled production recovery acceptance.",
+    "Original-device messaging, retained encrypted history and attachment recovery verification.",
+    "Passing full-duration staging soak with all historical failures preserved.",
+    "Protected deployment and off-host backup workflow verification."
+  ]
+}
