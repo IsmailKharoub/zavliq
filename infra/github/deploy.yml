@@ -1,9 +1,20 @@
-# Copy into .github/workflows/deploy.yml after setting the repository environment.
-name: Deploy Zavliq
+# Template only. Enable after production prerequisites and a reviewed bundle exist.
+name: Activate reviewed Zavliq bundle
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
+    inputs:
+      bundle_id:
+        description: Pre-uploaded REVISION-public-CONFIGURATION_PREFIX bundle
+        required: true
+        type: string
+      manifest_sha256:
+        description: Reviewed production-manifest.json SHA256
+        required: true
+        type: string
+      expected_current_manifest_sha256:
+        description: Current successful manifest SHA256, or none for the first activation
+        required: true
+        type: string
 permissions:
   contents: read
   id-token: write
@@ -12,38 +23,88 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
+    if: github.repository == 'IsmailKharoub/zavliq' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: production
-    timeout-minutes: 30
+    # All step limits sum to 41 minutes, including cleanup and journal upload.
+    timeout-minutes: 45
+    env:
+      BUNDLE_ID: ${{ inputs.bundle_id }}
+      MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+      EXPECTED_CURRENT_MANIFEST_SHA256: ${{ inputs.expected_current_manifest_sha256 }}
+      INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+      DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        timeout-minutes: 2
+        with:
+          persist-credentials: false
+      - name: Validate reviewed deployment inputs
+        timeout-minutes: 1
+        run: |
+          python3 - <<'PY'
+          import os,re
+          checks = {
+              'BUNDLE_ID': r'[0-9a-f]{40}-public-[0-9a-f]{16}',
+              'MANIFEST_SHA256': r'[0-9a-f]{64}',
+              'EXPECTED_CURRENT_MANIFEST_SHA256': r'(none|[0-9a-f]{64})',
+              'EXPECTED_ACCOUNT': r'[0-9]{12}',
+          }
+          if any(not re.fullmatch(pattern, os.environ[name]) for name,pattern in checks.items()):
+              raise SystemExit('Exact reviewed identifiers are required')
+          if os.environ['INSTANCE'] != 'zavliq-production':
+              raise SystemExit('This workflow only targets production')
+          if os.environ['DEPLOY_ROLE'] != 'arn:aws:iam::'+os.environ['EXPECTED_ACCOUNT']+':role/zavliq-production-github':
+              raise SystemExit('Production role/account mismatch')
+          PY
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        timeout-minutes: 3
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
-      - name: Build immutable release
-        run: bash infra/scripts/build-release.sh "$RUNNER_TEMP/release"
-      - name: Prepare temporary SSH access
-        env:
-          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: zavliq-${{ github.run_id }}
+          unset-current-credentials: true
+          retry-max-attempts: 3
+          action-timeout-s: 120
+      - name: Prepare temporary verified SSH access
+        timeout-minutes: 3
+        run: python3 infra/scripts/ci-host-access.py open --directory "$RUNNER_TEMP/zavliq-access"
+      - name: Verify installed activation tools and activate existing bundle
+        timeout-minutes: 27
         run: |
-          python3 infra/scripts/prepare-ssh.py --instance "$INSTANCE" --directory "$RUNNER_TEMP/zavliq-ssh"
-          RUNNER_IP=$(curl --fail --silent --show-error https://checkip.amazonaws.com)
-          printf '%s/32' "$RUNNER_IP" > "$RUNNER_TEMP/runner-cidr"
-          aws lightsail open-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_IP/32" > /dev/null
-      - name: Upload and deploy
-        run: |
-          ssh -F "$RUNNER_TEMP/zavliq-ssh/config" zavliq "sudo install -d -o ubuntu -m 755 /opt/zavliq/releases/$GITHUB_SHA"
-          scp -F "$RUNNER_TEMP/zavliq-ssh/config" -r "$RUNNER_TEMP/release/"* "zavliq:/opt/zavliq/releases/$GITHUB_SHA/"
-          ssh -F "$RUNNER_TEMP/zavliq-ssh/config" zavliq "sudo bash /opt/zavliq/releases/$GITHUB_SHA/infra/scripts/deploy-release.sh $GITHUB_SHA"
-      - name: Close temporary access
+          python3 - <<'PY'
+          import hashlib,os,pathlib,subprocess
+          config = os.environ['RUNNER_TEMP']+'/zavliq-access/ssh/config'
+          ssh = ['ssh','-F',config,'-o','BatchMode=yes','-o','ConnectTimeout=20',
+                 '-o','ServerAliveInterval=15','-o','ServerAliveCountMax=4','zavliq']
+          checks = ''.join(hashlib.sha256(pathlib.Path('infra/production/'+name).read_bytes()).hexdigest()
+                           +'  /opt/zavliq/production-tools/'+name+'\n'
+                           for name in ['activate.py','prepare_bundle.py'])
+          subprocess.run(ssh+['sudo sha256sum --check --status -'],input=checks,text=True,check=True,timeout=60)
+          # Values passed to SSH's remote shell were restricted to literal IDs above.
+          command = ('sudo python3 /opt/zavliq/production-tools/activate.py activate'
+                     +' --bundle-id '+os.environ['BUNDLE_ID']
+                     +' --manifest-sha256 '+os.environ['MANIFEST_SHA256']
+                     +' --expected-current-manifest-sha256 '+os.environ['EXPECTED_CURRENT_MANIFEST_SHA256'])
+          subprocess.run(ssh+[command],check=True,timeout=1500)
+          PY
+      - name: Close only this run's temporary access
+        timeout-minutes: 3
+        id: close_access
         if: always()
-        env:
-          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
         run: |
-          if [ -f "$RUNNER_TEMP/runner-cidr" ]; then
-            RUNNER_CIDR=$(cat "$RUNNER_TEMP/runner-cidr")
-            aws lightsail close-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_CIDR" > /dev/null
-          fi
-          rm -rf "$RUNNER_TEMP/zavliq-ssh"
+          cleanup_status=0
+          python3 infra/scripts/ci-host-access.py close --directory "$RUNNER_TEMP/zavliq-access" || cleanup_status=$?
+          rm -rf -- "$RUNNER_TEMP/zavliq-access/ssh"
+          exit "$cleanup_status"
+      - name: Preserve the rule journal if cleanup failed
+        timeout-minutes: 2
+        if: always() && steps.close_access.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-ssh-rule-${{ github.run_id }}
+          path: ${{ runner.temp }}/zavliq-access/state.json
+          if-no-files-found: ignore
+          retention-days: 7

@@ -125,10 +125,16 @@ resource "aws_iam_role" "github" {
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = { StringEquals = {
         "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-        "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:environment:${var.environment}"
+        "token.actions.githubusercontent.com:sub" = "${var.github_oidc_subject_prefix}:environment:${var.environment}"
       } }
     }]
   })
+  lifecycle {
+    precondition {
+      condition     = replace(var.github_oidc_subject_prefix, "/@[0-9]+/", "") == "repo:${var.github_repository}"
+      error_message = "The verified OIDC subject prefix must belong to the configured GitHub repository."
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "github" {
@@ -137,6 +143,9 @@ resource "aws_iam_role_policy" "github" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["lightsail:GetInstanceAccessDetails", "lightsail:GetInstance", "lightsail:OpenInstancePublicPorts", "lightsail:CloseInstancePublicPorts"], Resource = aws_lightsail_instance.app.arn },
+      # GetOperation has no resource-level IAM support; limit the read to our fixed region.
+      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_lightsail.html
+      { Effect = "Allow", Action = ["lightsail:GetOperation"], Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = "us-east-1" } } },
       { Effect = "Allow", Action = ["s3:PutObject", "s3:GetObject"], Resource = "${aws_s3_bucket.backups.arn}/daily/*" },
       { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.backups.arn, Condition = { StringLike = { "s3:prefix" = "daily/*" } } }
     ]

@@ -15,6 +15,19 @@ variable "domain" {
 variable "github_repository" {
   type        = string
   description = "Exact owner/repository permitted to use deployment OIDC credentials."
+  validation {
+    condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9_.-]+$", var.github_repository))
+    error_message = "Supply the exact GitHub owner/repository without wildcards."
+  }
+}
+
+variable "github_oidc_subject_prefix" {
+  type        = string
+  description = "Exact immutable sub_claim_prefix returned by GitHub's repository OIDC customization API."
+  validation {
+    condition     = can(regex("^repo:[A-Za-z0-9-]+@[1-9][0-9]*/[A-Za-z0-9_.-]+@[1-9][0-9]*$", var.github_oidc_subject_prefix))
+    error_message = "Supply the repository's verified immutable OIDC subject prefix, including owner and repository IDs."
+  }
 }
 
 variable "github_oidc_provider_arn" {

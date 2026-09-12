@@ -1,4 +1,4 @@
-# Copy into .github/workflows/backups.yml. OIDC role only accesses this deployment.
+# Template only. Enable after the production environment and backup drill pass.
 name: Off-host encrypted backups
 on:
   workflow_dispatch:
@@ -12,35 +12,67 @@ concurrency:
   cancel-in-progress: false
 jobs:
   backup:
+    if: github.repository == 'IsmailKharoub/zavliq' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: production
-    timeout-minutes: 20
+    # All step limits sum to 24 minutes, including cleanup and journal upload.
+    timeout-minutes: 30
+    env:
+      INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+      DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+      BUCKET: ${{ vars.BACKUP_BUCKET }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        timeout-minutes: 2
+        with:
+          persist-credentials: false
+      - name: Validate production destination
+        timeout-minutes: 1
+        run: |
+          python3 - <<'PY'
+          import os,re
+          account = os.environ['EXPECTED_ACCOUNT']
+          if not re.fullmatch(r'[0-9]{12}', account) or os.environ['INSTANCE'] != 'zavliq-production':
+              raise SystemExit('Production instance/account required')
+          if os.environ['DEPLOY_ROLE'] != 'arn:aws:iam::'+account+':role/zavliq-production-github':
+              raise SystemExit('Production role mismatch')
+          if os.environ['BUCKET'] != 'zavliq-production-backups-'+account:
+              raise SystemExit('Production backup bucket mismatch')
+          PY
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        timeout-minutes: 3
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
-      - name: Prepare temporary SSH access
-        env:
-          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: zavliq-backup-${{ github.run_id }}
+          unset-current-credentials: true
+          retry-max-attempts: 3
+          action-timeout-s: 120
+      - name: Prepare temporary verified SSH access
+        timeout-minutes: 3
+        run: python3 infra/scripts/ci-host-access.py open --directory "$RUNNER_TEMP/zavliq-access"
+      - name: Retrieve encrypted backup and verify private S3 upload
+        timeout-minutes: 10
         run: |
-          python3 infra/scripts/prepare-ssh.py --instance "$INSTANCE" --directory "$RUNNER_TEMP/zavliq-ssh"
-          RUNNER_IP=$(curl --fail --silent --show-error https://checkip.amazonaws.com)
-          printf '%s/32' "$RUNNER_IP" > "$RUNNER_TEMP/runner-cidr"
-          aws lightsail open-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_IP/32" > /dev/null
-      - name: Retrieve encrypted backups and upload to private S3
-        env:
-          BUCKET: ${{ vars.BACKUP_BUCKET }}
-        run: |
-          python3 infra/scripts/fetch-backup.py --ssh-config "$RUNNER_TEMP/zavliq-ssh/config" --bucket "$BUCKET" --directory "$RUNNER_TEMP/backups"
-      - name: Close temporary access
+          python3 infra/scripts/fetch-backup.py --ssh-config "$RUNNER_TEMP/zavliq-access/ssh/config" \
+            --bucket "$BUCKET" --directory "$RUNNER_TEMP/backups"
+      - name: Close only this run's temporary access
+        timeout-minutes: 3
+        id: close_access
         if: always()
-        env:
-          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
         run: |
-          if [ -f "$RUNNER_TEMP/runner-cidr" ]; then
-            RUNNER_CIDR=$(cat "$RUNNER_TEMP/runner-cidr")
-            aws lightsail close-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_CIDR" > /dev/null
-          fi
-          rm -rf "$RUNNER_TEMP/zavliq-ssh" "$RUNNER_TEMP/backups"
+          cleanup_status=0
+          python3 infra/scripts/ci-host-access.py close --directory "$RUNNER_TEMP/zavliq-access" || cleanup_status=$?
+          rm -rf -- "$RUNNER_TEMP/zavliq-access/ssh" "$RUNNER_TEMP/backups"
+          exit "$cleanup_status"
+      - name: Preserve the rule journal if cleanup failed
+        timeout-minutes: 2
+        if: always() && steps.close_access.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-ssh-rule-${{ github.run_id }}
+          path: ${{ runner.temp }}/zavliq-access/state.json
+          if-no-files-found: ignore
+          retention-days: 7
