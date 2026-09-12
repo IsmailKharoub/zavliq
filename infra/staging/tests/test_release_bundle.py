@@ -1,12 +1,15 @@
+import hashlib
 import io
 import json
+import os
 from pathlib import Path
+import stat
 import sys
 import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
-from subprocess import CompletedProcess
+from subprocess import CalledProcessError, CompletedProcess
 
 BASE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE))
@@ -38,6 +41,35 @@ class ReleaseTests(unittest.TestCase):
             bundle.extract_source(root / 'source.tar.gz', root / 'out')
             self.assertEqual((root / 'out/infra/example.py').read_bytes(), b'x')
 
+    def test_private_umask_preserves_readable_source_and_executable_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            destination = root / 'out'
+            destination.mkdir(mode=0o700)
+            with tarfile.open(root / 'source.tar.gz', 'w:gz') as archive:
+                directory = tarfile.TarInfo('services/policy')
+                directory.type = tarfile.DIRTYPE
+                directory.mode = 0o755
+                archive.addfile(directory)
+                for name, mode in [('services/policy/__init__.py', 0o644),
+                                   ('infra/scripts/start.sh', 0o755)]:
+                    member = tarfile.TarInfo(name)
+                    member.size = 1
+                    member.mode = mode
+                    archive.addfile(member, io.BytesIO(b'x'))
+            previous_umask = os.umask(0o077)
+            try:
+                bundle.extract_source(root / 'source.tar.gz', destination)
+            finally:
+                os.umask(previous_umask)
+            for path in destination.rglob('*'):
+                if path.is_dir():
+                    self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755)
+            self.assertEqual(stat.S_IMODE((destination / 'services/policy/__init__.py').stat().st_mode), 0o644)
+            self.assertEqual(stat.S_IMODE((destination / 'infra/scripts/start.sh').stat().st_mode), 0o755)
+            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(root.stat().st_mode), 0o700)
+
     def test_postgres_pin_fails_before_any_build_or_pull(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -53,6 +85,49 @@ class ReleaseTests(unittest.TestCase):
                     bundle.build_bundle(root, root / 'out')
                 self.assertEqual(len(run.call_args_list), 2)
                 self.assertFalse((root / 'out').exists())
+
+    def test_service_user_import_failure_prevents_image_archive(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            revision = 'a' * 40
+            with tarfile.open(root / 'source.tar.gz', 'w:gz') as archive:
+                member = tarfile.TarInfo('infra/example.py')
+                member.size = 1
+                archive.addfile(member, io.BytesIO(b'x'))
+            binary = b'\x7fELFfixture'
+            with tarfile.open(root / 'native-runtime.tar.gz', 'w:gz') as archive:
+                member = tarfile.TarInfo('zavliq')
+                member.size = len(binary)
+                archive.addfile(member, io.BytesIO(binary))
+            manifest = {'revision': revision, 'web_echo_user_id': bundle.ECHO_ID,
+                        'source_archive_sha256': bundle.digest(root / 'source.tar.gz'),
+                        'native_runtime': {'head_sha': revision, 'target': 'x86_64-unknown-linux-gnu',
+                                           'archive_sha256': bundle.digest(root / 'native-runtime.tar.gz'),
+                                           'binary_sha256': hashlib.sha256(binary).hexdigest()},
+                        'postgres': {'ref': bundle.POSTGRES_REF, 'id': bundle.POSTGRES_ID}}
+            (root / 'source-manifest.json').write_text(json.dumps(manifest))
+            commands = []
+
+            def execute(command, **kwargs):
+                commands.append(command)
+                if command[:2] == ['docker', 'info']:
+                    return CompletedProcess(command, 0, 'linux/amd64\n')
+                if command[:3] == ['docker', 'image', 'inspect']:
+                    return CompletedProcess(command, 0, bundle.POSTGRES_ID + '\n')
+                if command[:2] == ['docker', 'run']:
+                    raise CalledProcessError(1, command)
+                return CompletedProcess(command, 0)
+
+            with patch.object(bundle, 'checked', side_effect=execute), \
+                    patch.object(bundle.subprocess, 'run', return_value=CompletedProcess([], 1)):
+                with self.assertRaises(CalledProcessError):
+                    bundle.build_bundle(root, root / 'out')
+            self.assertEqual(len([command for command in commands if command[:3] == ['docker', 'buildx', 'build']]), 4)
+            self.assertEqual(commands[-1], ['docker', 'run', '--rm', '--network', 'none', '--user', '991:991',
+                                          '--entrypoint', 'python', 'zavliq-synapse:' + revision, '-c',
+                                          'from zavliq_policy import ZavliqPolicy; assert callable(ZavliqPolicy)'])
+            self.assertFalse(any(command[:2] == ['docker', 'save'] for command in commands))
+            self.assertFalse((root / 'out/images.tar').exists())
 
     def test_stage_namespace_cannot_be_reinitialized_or_moved(self):
         values = {'COMPOSE_PROJECT_NAME': 'zavliq-load', 'ZAVLIQ_SERVER_NAME': 'localhost', 'ZAVLIQ_PUBLIC_URL': 'http://localhost:28180',

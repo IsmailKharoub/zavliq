@@ -41,6 +41,11 @@ def extract_source(archive, destination):
         if sum(item.size for item in members) > 256 * 1024 * 1024:
             raise ValueError('SOURCE_ARCHIVE_TOO_LARGE')
         source.extractall(destination, filter='data')
+        # The data filter clears directory modes; a private operator umask would
+        # otherwise make copied source inaccessible to container service users.
+        for path in destination.rglob('*'):
+            if path.is_dir():
+                path.chmod(0o755)
 
 
 def source_package(revision, output):
@@ -131,6 +136,11 @@ def build_bundle(source, output):
                 args += ['--build-arg', 'ZAVLIQ_NATIVE_SHA256=' + runtime['binary_sha256'], '--build-arg', 'ZAVLIQ_SOURCE_REVISION=' + revision]
             # Serial packaging builds only; no Rust compiler runs on the measured host.
             checked(args + ['.'], cwd=directory, timeout=3600)
+        # Synapse drops to UID 991. Verify the copied policy is readable without
+        # credentials, network access or any application state before archiving.
+        checked(['docker', 'run', '--rm', '--network', 'none', '--user', '991:991',
+                 '--entrypoint', 'python', refs['synapse'], '-c',
+                 'from zavliq_policy import ZavliqPolicy; assert callable(ZavliqPolicy)'])
         refs['postgres'] = POSTGRES_REF
         images = {}
         for name, ref in refs.items():
