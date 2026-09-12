@@ -53,5 +53,23 @@ class Installer(unittest.TestCase):
         (self.root/'assets'/'SHA256SUMS').write_text(f'{self.hash}  other.tar.gz\n')
         self.assertNotEqual(self.run_installer('--version','v0.1.0').returncode,0)
         self.assertFalse(self.destination.exists())
+    def test_reviewed_manifest_pin_accepts_exact_release(self):
+        pin=hashlib.sha256((self.root/'assets/SHA256SUMS').read_bytes()).hexdigest()
+        result=self.run_installer('--version','v0.1.0','--sha256sums-sha256',pin)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual((self.destination/'zavliq').read_bytes(),self.binary)
+    def test_reviewed_manifest_pin_rejects_consistent_changed_release(self):
+        assets=self.root/'assets'
+        pin=hashlib.sha256((assets/'SHA256SUMS').read_bytes()).hexdigest()
+        changed=b'#!/bin/sh\nprintf "different synthetic executable\\n"\n'
+        with tarfile.open(assets/ARCHIVE,'w:gz') as archive:
+            item=tarfile.TarInfo('zavliq');item.size=len(changed);item.mode=0o755
+            archive.addfile(item,io.BytesIO(changed))
+        checksum=hashlib.sha256((assets/ARCHIVE).read_bytes()).hexdigest()
+        (assets/'SHA256SUMS').write_text(f'{checksum}  {ARCHIVE}\n')
+        result=self.run_installer('--version','v0.1.0','--sha256sums-sha256',pin)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('Manifest checksum mismatch',result.stderr)
+        self.assertFalse(self.destination.exists())
 
 if __name__=='__main__':unittest.main()

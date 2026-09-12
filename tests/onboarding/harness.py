@@ -18,7 +18,8 @@ import time
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'packages/client-python/src'))
+if os.environ.get('ZAVLIQ_ONBOARDING_INSTALLED') != '1':
+    sys.path.insert(0, str(ROOT / 'packages/client-python/src'))
 from zavliq import Zavliq, ZavliqError
 
 PRIVATE = ROOT / 'tests/onboarding/.local'
@@ -157,14 +158,15 @@ async def converse(model: str, payload: dict, budget: Budget, trial: str, timeou
 
 
 class McpConnection:
-    def __init__(self, directory: Path, origin: str, binary: str):
+    def __init__(self, directory: Path, origin: str, binary: str, entry: Path | None = None):
         self.directory, self.origin, self.binary = directory, origin, binary
+        self.entry = entry or ROOT / 'packages/mcp/src/index.mjs'
         self.process = None
         self.sequence = 0
 
     async def start(self):
         self.process = await asyncio.create_subprocess_exec(
-            'node', str(ROOT / 'packages/mcp/src/index.mjs'),
+            'node', str(self.entry),
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
             env={**os.environ, 'ZAVLIQ_BINARY': self.binary, 'ZAVLIQ_DATA_DIR': str(self.directory), 'ZAVLIQ_CONTROL_URL': self.origin},
@@ -311,7 +313,7 @@ async def peer_tick(peer: Zavliq, rooms: set[str], user_id: str | None, challeng
     for request in requests.get('items', []):
         if request['room_id'] in rooms and request.get('inviter') == user_id:
             await peer.call('accept', {'room_id': request['room_id']})
-    inbox = await peer.call('inbox', {'full': True, 'limit': 100})
+    inbox = await peer.call('inbox', {'full': True, 'limit': 100, 'cursor': state.get('cursor', 0)})
     for event in inbox['items']:
         if event['room_id'] not in rooms or event['sender'] != user_id:
             continue
@@ -321,40 +323,60 @@ async def peer_tick(peer: Zavliq, rooms: set[str], user_id: str | None, challeng
         response = await peer.send(event['room_id'], text=f'Fixture received {challenge}. Receipt code: {receipt}', idempotency_key='echo-' + hashlib.sha256(event['event_id'].encode()).hexdigest()[:24])
         state.update(received_event=event['event_id'], reply_event=response['event_id'])
         state['replied'].add(event['event_id'])
+    state['cursor'] = inbox.get('next_cursor', state.get('cursor', 0))
 
 
-async def trial(index: int, model: str, transport: str, origin: str, binary: str, schemas: list, budget: Budget, run_id: str) -> dict:
+def trial_timing(started, finished, passed, *, model_started=None):
+    elapsed = finished - started if started is not None else None
+    result = {'elapsed_seconds': round(elapsed, 3) if elapsed is not None else None,
+              'within_five_minutes': bool(passed and elapsed is not None and 0 <= elapsed <= MAX_SECONDS)}
+    if model_started is not None:
+        result.update(installation_seconds=round(model_started - started, 3),
+                      model_seconds=round(finished - model_started, 3),
+                      timing_scope='documented_operator_install_to_verified_model_reply')
+    return result
+
+
+async def trial(index: int, model: str, transport: str, origin: str, binary: str, schemas: list, budget: Budget, run_id: str, *, skill_path: Path | None = None, mcp_entry: Path | None = None, peer_directory: Path | None = None, install_started: float | None = None, provenance: dict | None = None) -> dict:
     identifier = f'{run_id}-{index:02d}'
     directory = PRIVATE / identifier
     directory.mkdir(mode=0o700)
     handle = ('arden', 'mira', 'cedar', 'linden', 'vale', 'rowan', 'iris', 'hazel', 'fern', 'sage')[index - 1] + '-' + identifier
-    peer = Zavliq(binary=binary, data_dir=str(directory / 'peer'), control_url=origin, timeout=40)
+    peer = Zavliq(binary=binary, data_dir=str(peer_directory or directory / 'peer'), control_url=origin, timeout=40)
     connector = None
-    started = None
+    started = install_started
+    model_started = None
     transcript = []
     result = {'trial': identifier, 'provider': MODELS[model]['provider'], 'model': model, 'transport': transport, 'passed': False, 'turns': 0}
+    if provenance is not None:
+        result['release_install'] = provenance
     before_cost = budget.total()
     schema_by_name = {item['toolSpec']['name']: item['toolSpec']['inputSchema']['json'] for item in schemas}
     try:
-        peer_identity = await peer.init('willow-' + identifier)
+        peer_identity = await peer.identity() if peer_directory else await peer.init('willow-' + identifier)
+        if provenance is not None and (peer_identity.get('homeserver', '').rstrip('/') != origin or not peer_identity.get('user_id', '').endswith(':zavliq.com')):
+            raise RuntimeError('PUBLIC_FIXTURE_IDENTITY_REQUIRED')
         challenge, receipt = 'hello-' + secrets.token_hex(6), 'receipt-' + secrets.token_hex(8)
         scope = Scope(handle, peer_identity['user_id'])
         peer_state = {'replied': set()}
         user_id = None
         receipt_observed = False
         if transport == 'mcp':
-            connector = McpConnection(directory / 'agent', origin, binary)
+            connector = McpConnection(directory / 'agent', origin, binary, mcp_entry)
             await connector.start()
         else:
             connector = Zavliq(binary=binary, data_dir=str(directory / 'agent'), control_url=origin, timeout=40)
-        skill = (ROOT / 'packages/skill/zavliq/SKILL.md').read_text()
+        skill = (skill_path or ROOT / 'packages/skill/zavliq/SKILL.md').read_text()
         result['skill_sha256'] = hashlib.sha256(skill.encode()).hexdigest()
+        time_instruction = 'You have five minutes.' if install_started is None else f'You have {max(0, int(MAX_SECONDS - (time.monotonic() - install_started)))} seconds remaining in the five-minute installation-to-reply limit.'
         task = (f'Use Zavliq to register your assigned fresh handle {handle}, establish a standard DM with the fixture peer {peer_identity["user_id"]}, '
                 f'and send a synthetic greeting containing {challenge}. Receive its reply and report its receipt code in your final answer. '
-                f'The configured local service is {origin}. This trial permits only the assigned handle, peer and its DM rooms. '
-                'The provided tools are the available interface. Do not claim success without observing the reply. You have five minutes.')
+                f'The configured {"local " if provenance is None else ""}service is {origin}. This trial permits only the assigned handle, peer and its DM rooms. '
+                'The provided tools are the available interface. Do not claim success without observing the reply. ' + time_instruction)
         messages = [{'role': 'user', 'content': [{'text': task}]}]
-        started = time.monotonic()
+        model_started = time.monotonic()
+        if started is None:
+            started = model_started
         for turn in range(1, MAX_TURNS + 1):
             remaining = MAX_SECONDS - (time.monotonic() - started)
             if remaining <= 0:
@@ -399,6 +421,8 @@ async def trial(index: int, model: str, transport: str, origin: str, binary: str
                         output = {'error': {'code': 'TRIAL_CONTEXT_LIMIT', 'message': 'Use smaller pages to fit this bounded trial.'}}
                     scope.observe(output)
                     if name == 'zavliq_init' and 'user_id' in output:
+                        if provenance is not None and (output.get('homeserver', '').rstrip('/') != origin or not output['user_id'].endswith(':zavliq.com')):
+                            raise RuntimeError('PUBLIC_AGENT_IDENTITY_REQUIRED')
                         user_id = output['user_id']
                     if receipt in json.dumps(output):
                         receipt_observed = True
@@ -417,8 +441,8 @@ async def trial(index: int, model: str, transport: str, origin: str, binary: str
     except Exception as error:
         result['outcome'] = str(error).split(':')[0][:120]
     finally:
-        result['elapsed_seconds'] = round(time.monotonic() - started, 3) if started else None
-        result['within_five_minutes'] = bool(result['passed'] and result['elapsed_seconds'] <= MAX_SECONDS)
+        finished = time.monotonic()
+        result.update(trial_timing(started, finished, result['passed'], model_started=(model_started or finished) if install_started is not None else None))
         result['conservative_cost_usd'] = round(budget.total() - before_cost, 6)
         if connector:
             await connector.close()

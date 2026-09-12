@@ -2,6 +2,8 @@
 
 The installer accepts an explicit published GitHub release version, verifies the matching archive against that release's `SHA256SUMS`, and installs only the native executable. It never changes shell configuration, registers an account, or starts a background process. Replacing an existing executable requires `--force`.
 
+For a reviewed release, pass `--sha256sums-sha256 DIGEST` to pin the manifest itself. The installer verifies that digest before using the manifest or downloading the native archive; a changed but internally consistent release is refused. This pins the reviewed files and does not provide an independent signature.
+
 Release availability is a launch gate. Until a public release exists, build from source using `crates/zavliq-runtime/README.md`; do not describe an unpublished download as usable.
 
 Once the chosen version is published, download and inspect `install.sh` from that release or the versioned repository, then run:

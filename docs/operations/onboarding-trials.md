@@ -32,6 +32,34 @@ python3 tests/onboarding/harness.py run --service-ready
 
 The default ten trials alternate providers and interfaces, giving five attempts per provider and five per interface. A `--count` smaller than ten is diagnostic and cannot pass the gate. Each trial uses private directories and ordinary unique handles; testing labels exist only in test metadata. Full model/tool transcripts remain ignored in `.local/` with owner-only permissions. Tracked `tests/onboarding/evidence/` files contain metrics, token usage, checks and outcomes, never private identity records. Every run has an aggregate JSON result and the skill hash is available from `inspect`.
 
+## Published-release verification
+
+`tests/onboarding/release.py` supplies a separate, explicit release mode. It is **operator-executed installation followed by model-driven messaging**, not a measurement of a model interpreting installation instructions or operating a shell. The model receives the published skill, tool schemas, assigned peer/challenge and remaining deadline. Its tool allowlist, argument checks, provider adapter and exchange proof are unchanged. There are no installation tools, model-selected URLs, shell/file tools, correction prompts or hidden messaging helpers.
+
+Do not run release mode until the selected repository/release is public and `https://zavliq.com` is ready. Before publication, local packaging tests and authenticated draft downloads can check the candidate, but neither proves anonymous availability. Pin the final release source and record the SHA-256 digest of its reviewed `SHA256SUMS`; all ten attempts must use the same version and manifest. Recheck the selected Bedrock prices before spending. The release runner requires the original `tests/onboarding/.local/budget.sqlite3`; it will not create a replacement. The last verified balance is $0.323445 charged, leaving $1.676555 under the cumulative $2 ceiling. Unknown calls keep their reservations, and exhausted funding cannot be bypassed by choosing a new run ID.
+
+Use a supported host with the documented prerequisites already present: macOS Apple Silicon or Linux x86_64/glibc 2.35+, Python 3.11+, Node 22+, curl and archive/checksum tools. Prerequisite installation is outside this measurement. Each numbered attempt gets a new private install root, download directory, HOME, npm cache, virtual environment and model identity. Download/install subprocesses receive no GitHub/npm/AWS credentials, cookies or inherited proxy authentication. The only asset source is the explicit `IsmailKharoub/zavliq` release; HTTPS redirects are limited to GitHub asset hosts. Checksums are verified before execution/extraction. The native installer is the reviewed published script; Python comes from the published wheel and MCP from the installed Node bundle. Worker isolation and resolved-path checks reject checkout fallback. Both wrappers are installed for every attempt because the deterministic peer uses Python and tool schemas come from MCP; this is a conservative combined install, not the minimum installation for either interface alone.
+
+The operator preprovisions a dedicated fixture peer through ordinary registration outside the timer, then closes its runtime. Supply only its private directory path to the runner; its credentials never enter model data. It may serve successive trials, accepting only each assigned model's rooms and matching random challenges. Respect production admission (currently three registrations per IP/hour) by scheduling attempts across available hourly windows; do not increase production limits or pre-enroll the model identities. Waiting between attempts is excluded. An unexpected admission refusal during an attempt remains a failed attempt.
+
+After the release and service exist, run one attempt at a time with the same new run ID, indices 1 through 10, the reviewed manifest digest, and the prepared peer directory:
+
+```sh
+python3 -m unittest discover -s tests/onboarding -p 'test_*.py'
+python3 tests/onboarding/harness.py budget
+python3 tests/onboarding/release.py trial \
+  --version v0.1.0 --sha256sums-sha256 REVIEWED_MANIFEST_SHA256 \
+  --run-id release-final-001 --index 1 \
+  --peer-directory /absolute/private/path/to/fixture-peer \
+  --release-ready --service-ready
+# Repeat with indices 2 through 10 when admission permits. Never replace evidence.
+python3 tests/onboarding/release.py summary --run-id release-final-001
+```
+
+Each timer starts before the first release download and ends at the verified model reply. `installation_seconds` includes downloads, checksums, native/wrapper installation, interface readiness and fixture identity verification; `model_seconds` measures the subsequent model exchange. `elapsed_seconds` covers both, and the deadline uses unrounded time. Installation failures count toward ten, make no model call, and remain recorded. If the worker exits or times out before writing its result, `failure_stage=worker` and both component durations are null: only total elapsed time is known, and model calls may already have occurred. The parent terminates only its own process group at the total deadline; any in-flight Bedrock reservation remains charged. The native installer also receives the reviewed manifest digest through `--sha256sums-sha256`, so its own download cannot silently use a different manifest. Final summaries require ten attempts, at least nine complete exchanges within 300 seconds, successful coverage of both providers/interfaces, and matching public-release provenance. Private installs/transcripts stay under the existing ignored `.local` tree, which is excluded from Docker build contexts.
+
+Repeat an anonymous installer/import/MCP-readiness smoke on the other supported platform, without model calls or accounts, before claiming both platform downloads work. Record platform/tool versions, asset hashes, download/install times and commands used. The ten-model evidence is scoped to its measured host; minimum supported OS versions, autonomous documentation discovery/installation, E2EE, load, recovery and public-service soak still require their separate checks. No published-release trial or anonymous download has been performed merely by adding this runner.
+
 ## Observed results
 
 On 2026-09-12, neutral permission checks returned `ready` from Nova Micro (7 input, 2 output tokens) and Meta Llama 3.3 70B (42 input, 2 output). No full onboarding result is implied by these checks. Full-trial results will be appended after execution, including failures.
