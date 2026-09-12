@@ -44,6 +44,19 @@ Core services update first while the previous gateway stays running. Echo is pro
 
 Readiness checks exact running image IDs, core health, Matrix discovery, Zavliq discovery, compiled website/CSP and absence of HSTS on HTTP localhost. Deployment evidence clearly leaves real peer messaging and recovery checks pending. Independently verify standard text/exact JSON to Echo, duplicate prevention and its group/E2EE invitation refusal using a separate ordinary fixture. Do not infer a message round trip from an HTTP health check.
 
+The peer-only `tests/recovery/echo.py` driver uses the same source-phase target schema as the [restore fixture](e2ee-restore-fixture.md). Run it with the verified release wheel's isolated Python interpreter and the matching pinned native binary:
+
+```sh
+/ABSOLUTE/VERIFIED-VENV/bin/python -I tests/recovery/echo.py \
+  --target /PRIVATE/source-recovery-target.json \
+  --binary /ABSOLUTE/PINNED/zavliq \
+  --revision FULL_FINAL_COMMIT_SHA \
+  --run-id echo-REVISION12-RANDOMHEX8 \
+  --execute
+```
+
+It creates one ordinary Finch peer and never starts a responder. It verifies fixed-origin discovery before enrollment, exact text/JSON and stable retry IDs, then sends two sequential fresh-message barriers after the unsupported invitations. All three replies must come from the deployed Echo, with no extra reply across the complete paginated history. The unsupported rooms must remain unaccepted. Each run keeps its private store; successful and failed attempts produce separate sanitized evidence under `tests/recovery/evidence/`. Never reuse a run ID or replace a failed fixture to obtain a passing record.
+
 The bundle's `native_runtime.binary_sha256` and deployed `echo_native_binary_sha256` describe the **Linux Echo executable**. The recovery fixture's `native_binary_sha256` describes its own operator-side executable; use that actual pinned binary hash rather than copying the Linux value.
 
 ## Recovery and same-image rollback drill

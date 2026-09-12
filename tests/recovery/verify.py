@@ -26,8 +26,7 @@ ORIGIN = 'http://localhost:28180'
 SCHEMA = 'zavliq-e2ee-server-restore-v1'
 HEX64 = re.compile(r'[0-9a-f]{64}')
 RUN_ID = re.compile(r'recovery-([0-9a-f]{12})-([0-9a-f]{8})')
-sys.path.insert(0, str(ROOT / 'packages/client-python/src'))
-from zavliq import Zavliq  # noqa: E402
+from zavliq import Zavliq
 
 
 def require(condition, code):

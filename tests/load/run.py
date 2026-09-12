@@ -13,12 +13,10 @@ from pathlib import Path
 import re
 import secrets
 import shutil
-import sys
 import time
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'packages/client-python/src'))
 from zavliq import Zavliq, ZavliqError
 
 

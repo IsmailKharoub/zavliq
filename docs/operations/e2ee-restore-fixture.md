@@ -38,10 +38,10 @@ Keep target JSON and the fixture directory private and ignored. The runner creat
 
 ## Prepare, snapshot and route
 
-Choose a run ID `recovery-<revision first 12 characters>-<8 random lowercase hex characters>`. Use the exact reviewed native executable; there is no implicit `PATH` fallback. From the repository root, after final-build authorization:
+Choose a run ID `recovery-<revision first 12 characters>-<8 random lowercase hex characters>`. Use the exact reviewed native executable and the Python interpreter from the isolated installation of the matching release wheel. Verify the imported SDK module locations and bytes against that wheel before execution. The driver has no checkout SDK or native `PATH` fallback. From the repository root, after final-build authorization:
 
 ```sh
-python3 tests/recovery/verify.py prepare \
+/ABSOLUTE/VERIFIED-VENV/bin/python -I tests/recovery/verify.py prepare \
   --target /PRIVATE/source-recovery-target.json \
   --binary /ABSOLUTE/PINNED/zavliq \
   --revision EXACT_40_CHARACTER_COMMIT_SHA \
@@ -69,7 +69,7 @@ Operations produces the verify target with `phase: "verify"`, the exact clone pr
 The restore timestamp must follow the fixture's recorded preparation. Then run the same executable, revision and run ID:
 
 ```sh
-python3 tests/recovery/verify.py verify \
+/ABSOLUTE/VERIFIED-VENV/bin/python -I tests/recovery/verify.py verify \
   --target /PRIVATE/clone-recovery-target.json \
   --binary /ABSOLUTE/PINNED/zavliq \
   --revision EXACT_40_CHARACTER_COMMIT_SHA \
@@ -89,7 +89,7 @@ An enabled execution that fails also writes a durable `tests/recovery/evidence/<
 
 `verification_seconds` includes interruptions between the first verify start and successful completion. Operations measures the complete restore RTO and recovered-data age separately; this focused fixture does not measure backup duration or establish the broader retention/RPO, standard-room policy, load or browser gates. Its pass proves that the recorded restore can serve previously unseen encrypted history and attachment bytes to the original device stores, plus a new E2EE roundtrip. It does not prove recovery after losing those client keys.
 
-Run the offline guards and driver-ordering tests without any service or executable:
+Run the offline guards and driver-ordering tests using a Python environment with the SDK installed, without any service or native executable:
 
 ```sh
 python3 -m unittest discover -s tests/recovery -v
