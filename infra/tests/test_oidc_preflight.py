@@ -113,7 +113,7 @@ class OidcPreflightTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout), {"ok": False, "code": code})
         self.assert_sanitized(result)
 
-    def test_manual_protected_envelope_and_exact_read_policy(self):
+    def test_manual_protected_envelope_and_regional_read_policy(self):
         self.assertRegex(self.source, r"(?m)^on:\n  workflow_dispatch:\npermissions:")
         self.assertIn("if: github.repository == 'IsmailKharoub/zavliq' && github.ref == 'refs/heads/main'", self.source)
         self.assertIn("    environment: production\n    timeout-minutes: 5", self.source)
@@ -133,7 +133,7 @@ class OidcPreflightTests(unittest.TestCase):
         policy = json.loads(policy_text.replace("${{ secrets.LIGHTSAIL_INSTANCE_ARN }}", INSTANCE_ARN))
         self.assertEqual(policy, {"Version": "2012-10-17", "Statement": [
             {"Effect": "Allow", "Action": "sts:GetCallerIdentity", "Resource": "*"},
-            {"Effect": "Allow", "Action": "lightsail:GetInstance", "Resource": INSTANCE_ARN,
+            {"Effect": "Allow", "Action": "lightsail:GetInstance", "Resource": "*",
              "Condition": {"StringEquals": {"aws:RequestedRegion": "us-east-1"}}},
         ]})
 
@@ -188,38 +188,55 @@ class OidcPreflightTests(unittest.TestCase):
             self.assertEqual((call["max_attempts"], call["pager"], call["metadata_disabled"]), ("1", "", "true"))
 
     def test_wrong_account_role_or_session_never_reads_instance(self):
-        for changed in (
-                {"Account": "999999999999", "Arn": SESSION_ARN},
-                {"Account": ACCOUNT, "Arn": SESSION_ARN.replace("github/", "unreviewed/")},
-                {"Account": ACCOUNT, "Arn": SESSION_ARN.replace("-123-1", "-123-2")}):
+        for changed, code in (
+                ({"Account": "999999999999", "Arn": SESSION_ARN}, "PREFLIGHT_ACCOUNT_MISMATCH"),
+                ({"Account": ACCOUNT, "Arn": SESSION_ARN.replace("github/", "unreviewed/")}, "PREFLIGHT_ROLE_SESSION_MISMATCH"),
+                ({"Account": ACCOUNT, "Arn": SESSION_ARN.replace("-123-1", "-123-2")}, "PREFLIGHT_ROLE_SESSION_MISMATCH")):
             with self.subTest(identity_mismatch=True):
                 self.log.unlink(missing_ok=True)
                 self.responses["identity"]["body"] = changed
-                self.assert_failure(self.run_script(1), "PREFLIGHT_IDENTITY_CHECK_FAILED")
+                self.assert_failure(self.run_script(1), code)
                 self.assertEqual(len(self.calls()), 1)
 
     def test_instance_name_arn_region_and_running_state_are_required(self):
         original = self.responses["instance"]["body"]["instance"]
-        for patch in ({"name": "zavliq-production-recovery-other"},
-                      {"arn": INSTANCE_ARN + "replacement"},
-                      {"location": {"regionName": "us-west-2"}},
-                      {"state": {"name": "stopped"}}, {"location": None}):
+        for patch, code in (({"name": "zavliq-production-recovery-other"}, "PREFLIGHT_INSTANCE_IDENTITY_MISMATCH"),
+                            ({"arn": INSTANCE_ARN + "replacement"}, "PREFLIGHT_INSTANCE_IDENTITY_MISMATCH"),
+                            ({"location": {"regionName": "us-west-2"}}, "PREFLIGHT_INSTANCE_REGION_MISMATCH"),
+                            ({"state": {"name": "stopped"}}, "PREFLIGHT_INSTANCE_NOT_RUNNING"),
+                            ({"location": None}, "PREFLIGHT_INSTANCE_RESPONSE_INVALID")):
             with self.subTest(instance_mismatch=True):
                 self.responses["instance"]["body"]["instance"] = {**original, **patch}
-                self.assert_failure(self.run_script(1), "PREFLIGHT_IDENTITY_CHECK_FAILED")
+                self.assert_failure(self.run_script(1), code)
 
     def test_failed_malformed_and_oversized_responses_are_redacted(self):
-        for response in ({"exit": 1, "raw": SENTINEL, "stderr": SENTINEL},
-                         {"raw": SENTINEL}, {"raw": "[1,2,3]"},
-                         {"raw": " " * 65537 + SENTINEL}):
+        for response, suffix in (({"exit": 1, "raw": SENTINEL, "stderr": SENTINEL}, "FAILED"),
+                                 ({"raw": SENTINEL}, "RESPONSE_INVALID"),
+                                 ({"raw": "[1,2,3]"}, "RESPONSE_INVALID"),
+                                 ({"raw": " " * 65537 + SENTINEL}, "FAILED")):
             with self.subTest(response_failure=True):
                 self.responses["identity"] = response
-                self.assert_failure(self.run_script(1), "PREFLIGHT_IDENTITY_CHECK_FAILED")
+                self.assert_failure(self.run_script(1), "PREFLIGHT_CALLER_IDENTITY_REQUEST_" + suffix)
+
+    def test_instance_read_failure_is_distinguished_without_response_text(self):
+        self.responses["instance"] = {"exit": 254, "raw": SENTINEL,
+                                      "stderr": "AccessDeniedException: " + INSTANCE_ARN + SENTINEL}
+        self.assert_failure(self.run_script(1), "PREFLIGHT_INSTANCE_READ_FAILED")
+        self.assertEqual(len(self.calls()), 2)
+
+    def test_missing_instance_object_is_an_explicit_schema_failure(self):
+        self.responses["instance"] = {"body": {"unexpected": SENTINEL}}
+        self.assert_failure(self.run_script(1), "PREFLIGHT_INSTANCE_RESPONSE_INVALID")
+
+    def test_unavailable_cli_never_falls_back_to_a_real_executable(self):
+        (self.directory / "aws").unlink()
+        self.assert_failure(self.run_script(1), "PREFLIGHT_CALLER_IDENTITY_REQUEST_CLI_UNAVAILABLE")
+        self.assertEqual(self.calls(), [])
 
     def test_actual_subprocess_timeout_is_bounded_and_reaps_cli(self):
         self.responses["identity"] = {"sleep": 30, "raw": SENTINEL}
         started = time.monotonic()
-        self.assert_failure(self.run_script(1), "PREFLIGHT_IDENTITY_CHECK_FAILED")
+        self.assert_failure(self.run_script(1), "PREFLIGHT_CALLER_IDENTITY_REQUEST_TIMEOUT")
         self.assertLess(time.monotonic() - started, 20)
         calls = self.calls()
         self.assertEqual(len(calls), 1)

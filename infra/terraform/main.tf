@@ -148,10 +148,10 @@ resource "aws_iam_role_policy" "github" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["lightsail:GetInstanceAccessDetails", "lightsail:GetInstance", "lightsail:OpenInstancePublicPorts", "lightsail:CloseInstancePublicPorts"], Resource = local.active_instance.arn },
-      # GetOperation has no resource-level IAM support; limit the read to our fixed region.
+      { Effect = "Allow", Action = ["lightsail:GetInstanceAccessDetails", "lightsail:OpenInstancePublicPorts", "lightsail:CloseInstancePublicPorts"], Resource = local.active_instance.arn },
+      # GetInstance/GetOperation have no resource-level IAM support; limit reads to our fixed region.
       # https://docs.aws.amazon.com/service-authorization/latest/reference/list_lightsail.html
-      { Effect = "Allow", Action = ["lightsail:GetOperation"], Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = "us-east-1" } } },
+      { Effect = "Allow", Action = ["lightsail:GetInstance", "lightsail:GetOperation"], Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = "us-east-1" } } },
       { Effect = "Allow", Action = ["s3:PutObject", "s3:GetObject"], Resource = "${aws_s3_bucket.backups.arn}/daily/*" },
       { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.backups.arn, Condition = { StringLike = { "s3:prefix" = "daily/*" } } }
     ]

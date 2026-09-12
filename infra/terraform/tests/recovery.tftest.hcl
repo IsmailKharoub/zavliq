@@ -57,7 +57,19 @@ run "original_is_unchanged_by_default" {
   }
   assert {
     condition     = jsondecode(aws_iam_role_policy.github.policy).Statement[0].Resource == aws_lightsail_instance.app.arn
-    error_message = "The default role must authorize only the original exact ARN."
+    error_message = "The default credential and port permissions must authorize only the original exact ARN."
+  }
+  assert {
+    condition     = toset(jsondecode(aws_iam_role_policy.github.policy).Statement[0].Action) == toset(["lightsail:GetInstanceAccessDetails", "lightsail:OpenInstancePublicPorts", "lightsail:CloseInstancePublicPorts"])
+    error_message = "Only the three resource-scoped credential and port actions may use the exact active ARN."
+  }
+  assert {
+    condition     = toset(jsondecode(aws_iam_role_policy.github.policy).Statement[1].Action) == toset(["lightsail:GetInstance", "lightsail:GetOperation"]) && jsondecode(aws_iam_role_policy.github.policy).Statement[1].Resource == "*" && jsondecode(aws_iam_role_policy.github.policy).Statement[1].Condition == { StringEquals = { "aws:RequestedRegion" = "us-east-1" } }
+    error_message = "Only the two reads without resource-level IAM support use Resource:* and must retain the fixed regional condition."
+  }
+  assert {
+    condition     = length(jsondecode(aws_iam_role_policy.github.policy).Statement) == 4 && toset(jsondecode(aws_iam_role_policy.github.policy).Statement[2].Action) == toset(["s3:PutObject", "s3:GetObject"]) && jsondecode(aws_iam_role_policy.github.policy).Statement[2].Resource == "${aws_s3_bucket.backups.arn}/daily/*" && jsondecode(aws_iam_role_policy.github.policy).Statement[3].Action == ["s3:ListBucket"] && jsondecode(aws_iam_role_policy.github.policy).Statement[3].Resource == aws_s3_bucket.backups.arn && jsondecode(aws_iam_role_policy.github.policy).Statement[3].Condition == { StringLike = { "s3:prefix" = "daily/*" } }
+    error_message = "The read correction must not add statements or broaden existing backup prefix permissions."
   }
 }
 
@@ -127,7 +139,7 @@ run "confirmed_cutover_selects_restricted_verification" {
   }
   assert {
     condition     = jsondecode(aws_iam_role_policy.github.policy).Statement[0].Resource == aws_lightsail_instance.replacement[0].arn && output.instance_arn == aws_lightsail_instance.replacement[0].arn
-    error_message = "CI must use only the exact replacement ARN, with no wildcard or dual-host grant."
+    error_message = "CI credential and port permissions must use only the exact replacement ARN, with no wildcard or dual-host grant."
   }
   assert {
     condition     = aws_lightsail_instance.app.name == "zavliq-production" && aws_s3_bucket.backups.bucket == "zavliq-production-backups-111122223333" && aws_lambda_function.monitor.function_name == "zavliq-production-monitor"

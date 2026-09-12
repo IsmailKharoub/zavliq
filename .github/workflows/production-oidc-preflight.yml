@@ -79,7 +79,7 @@ jobs:
             {"Version":"2012-10-17","Statement":[
             {"Effect":"Allow","Action":"sts:GetCallerIdentity","Resource":"*"},
             {"Effect":"Allow","Action":"lightsail:GetInstance",
-            "Resource":"${{ secrets.LIGHTSAIL_INSTANCE_ARN }}",
+            "Resource":"*",
             "Condition":{"StringEquals":{"aws:RequestedRegion":"us-east-1"}}}]}
       - name: Verify the exact account, role and active instance
         timeout-minutes: 1
@@ -90,33 +90,63 @@ jobs:
 
           deadline = time.monotonic() + 40
 
-          def aws(arguments):
+          class PreflightFailure(Exception):
+              pass
+
+          def aws(arguments, request_code):
               remaining = deadline - time.monotonic()
               if remaining <= 0:
-                  raise TimeoutError()
-              result = subprocess.run(
-                  ['aws', *arguments, '--region', 'us-east-1', '--output', 'json',
-                   '--cli-connect-timeout', '5', '--cli-read-timeout', '10', '--no-cli-pager'],
-                  capture_output=True, text=True, timeout=min(15, remaining),
-                  env={**os.environ, 'AWS_MAX_ATTEMPTS': '1', 'AWS_PAGER': '',
-                       'AWS_EC2_METADATA_DISABLED': 'true'})
+                  raise PreflightFailure('PREFLIGHT_DEADLINE_EXCEEDED')
+              try:
+                  result = subprocess.run(
+                      ['aws', *arguments, '--region', 'us-east-1', '--output', 'json',
+                       '--cli-connect-timeout', '5', '--cli-read-timeout', '10', '--no-cli-pager'],
+                      capture_output=True, text=True, timeout=min(15, remaining),
+                      env={**os.environ, 'AWS_MAX_ATTEMPTS': '1', 'AWS_PAGER': '',
+                           'AWS_EC2_METADATA_DISABLED': 'true'})
+              except subprocess.TimeoutExpired:
+                  raise PreflightFailure(request_code + '_TIMEOUT') from None
+              except OSError:
+                  raise PreflightFailure(request_code + '_CLI_UNAVAILABLE') from None
               if result.returncode or len(result.stdout) > 65536:
-                  raise ValueError('response')
-              return json.loads(result.stdout)
+                  raise PreflightFailure(request_code + '_FAILED')
+              try:
+                  value = json.loads(result.stdout)
+              except (ValueError, TypeError):
+                  raise PreflightFailure(request_code + '_RESPONSE_INVALID') from None
+              if not isinstance(value, dict):
+                  raise PreflightFailure(request_code + '_RESPONSE_INVALID')
+              return value
 
           try:
               account = os.environ['EXPECTED_ACCOUNT']
               session = 'zavliq-oidc-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
-              identity = aws(['sts', 'get-caller-identity'])
-              if (identity.get('Account') != account or identity.get('Arn') !=
-                      'arn:aws:sts::' + account + ':assumed-role/zavliq-production-github/' + session):
-                  raise ValueError('identity')
-              instance = aws(['lightsail', 'get-instance', '--instance-name', os.environ['INSTANCE']])['instance']
+              identity = aws(['sts', 'get-caller-identity'], 'PREFLIGHT_CALLER_IDENTITY_REQUEST')
+              if identity.get('Account') != account:
+                  raise PreflightFailure('PREFLIGHT_ACCOUNT_MISMATCH')
+              if identity.get('Arn') != 'arn:aws:sts::' + account + ':assumed-role/zavliq-production-github/' + session:
+                  raise PreflightFailure('PREFLIGHT_ROLE_SESSION_MISMATCH')
+              # GetInstance has no resource-level IAM support. The regional read
+              # permission is narrowed here to the protected, exact host identity.
+              response = aws(['lightsail', 'get-instance', '--instance-name', os.environ['INSTANCE']],
+                             'PREFLIGHT_INSTANCE_READ')
+              instance = response.get('instance')
+              if not isinstance(instance, dict):
+                  raise PreflightFailure('PREFLIGHT_INSTANCE_RESPONSE_INVALID')
               if (instance.get('name') != os.environ['INSTANCE'] or
-                      instance.get('arn') != os.environ['INSTANCE_ARN'] or
-                      instance.get('location', {}).get('regionName') != 'us-east-1' or
-                      instance.get('state', {}).get('name') != 'running'):
-                  raise ValueError('instance')
+                      instance.get('arn') != os.environ['INSTANCE_ARN']):
+                  raise PreflightFailure('PREFLIGHT_INSTANCE_IDENTITY_MISMATCH')
+              location, state = instance.get('location'), instance.get('state')
+              if not isinstance(location, dict) or not isinstance(state, dict):
+                  raise PreflightFailure('PREFLIGHT_INSTANCE_RESPONSE_INVALID')
+              if location.get('regionName') != 'us-east-1':
+                  raise PreflightFailure('PREFLIGHT_INSTANCE_REGION_MISMATCH')
+              if state.get('name') != 'running':
+                  raise PreflightFailure('PREFLIGHT_INSTANCE_NOT_RUNNING')
+          except PreflightFailure as error:
+              # All codes are fixed above; never include AWS response/error text.
+              print(json.dumps({'ok': False, 'code': str(error)}))
+              raise SystemExit(1) from None
           except Exception:
               # Neither AWS responses nor exception details belong in public logs.
               print(json.dumps({'ok': False, 'code': 'PREFLIGHT_IDENTITY_CHECK_FAILED'}))
