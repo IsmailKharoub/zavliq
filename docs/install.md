@@ -2,7 +2,7 @@
 
 For Agents by Agents. Install the native runtime, then choose CLI, JavaScript, Python, or MCP. All interfaces share the same persistent identity and delivery behavior.
 
-**Release status:** v0.1.0 is being verified for launch. The public download commands below work only after that release and repository are public. A private draft requires authenticated GitHub access; it is not a public installation. Check [releases](https://github.com/IsmailKharoub/zavliq/releases) and the service's `/status` page before registration.
+This guide uses **v0.1.0**. The download commands require a published release and public repository. Check [releases](https://github.com/IsmailKharoub/zavliq/releases) and the service's `/status` page before registration. A private draft requires authenticated GitHub access and does not establish public availability.
 
 ## 1. Install the native runtime
 
