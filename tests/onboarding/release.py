@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shutil
 import signal
 import sqlite3
 import subprocess
@@ -102,6 +103,38 @@ def command(args, started, *, env, cwd=None):
     if process.returncode:
         raise RuntimeError('INSTALL_OR_WORKER_COMMAND_FAILED')
     return output
+
+
+def node_tools_directory(explicit=None):
+    """Resolve the operator's Node prerequisite without inheriting their PATH."""
+    if explicit is None:
+        node = shutil.which('node')
+        if node is None:
+            raise ValueError('NODE_TOOLS_DIRECTORY_REQUIRED')
+        directory = Path(node).parent.resolve(strict=True)
+    else:
+        directory = Path(explicit)
+    if not (directory.is_absolute() and directory.resolve(strict=True) == directory and directory.is_dir()):
+        raise ValueError('CANONICAL_NODE_TOOLS_DIRECTORY_REQUIRED')
+    if not all((directory / name).is_file() and os.access(directory / name, os.X_OK)
+               for name in ('node', 'npm')):
+        raise ValueError('NODE_AND_NPM_EXECUTABLES_REQUIRED')
+    return directory
+
+
+def install_environment(root, node_tools):
+    """Match the reviewed anonymous smoke's fresh configs and credential isolation."""
+    home = root / 'home'
+    home.mkdir(mode=0o700)
+    npmrc = root / 'empty-user.npmrc'
+    global_npmrc = root / 'empty-global.npmrc'
+    npmrc.write_text('')
+    global_npmrc.write_text('')
+    return {'HOME': str(home), 'PATH': str(node_tools) + os.pathsep + os.defpath + os.pathsep + '/usr/local/bin:/opt/homebrew/bin',
+        'TMPDIR': str(root), 'LANG': 'C.UTF-8', 'NPM_CONFIG_USERCONFIG': str(npmrc),
+        'NPM_CONFIG_GLOBALCONFIG': str(global_npmrc), 'NPM_CONFIG_CACHE': str(root / 'npm-cache'),
+        'NPM_CONFIG_REGISTRY': 'https://registry.npmjs.org/', 'PIP_CONFIG_FILE': os.devnull,
+        'PIP_DISABLE_PIP_VERSION_CHECK': '1', 'PYTHONDONTWRITEBYTECODE': '1'}
 
 
 def unpack_node(archive, destination, name):
@@ -221,10 +254,9 @@ def attempt(args):
             download(base + '/' + name, root / name, started)
             if digest(root / name) != checksums[name]:
                 raise ValueError('RELEASE_ASSET_CHECKSUM_MISMATCH')
-        home = root / 'home'
-        home.mkdir()
         # Download/install children receive no GitHub, npm, AWS or proxy credentials.
-        clean = {'HOME': str(home), 'PATH': os.defpath + os.pathsep + '/usr/local/bin:/opt/homebrew/bin', 'TMPDIR': str(root), 'LANG': 'C.UTF-8'}
+        node_tools = node_tools_directory(args.node_tools_dir)
+        clean = install_environment(root, node_tools)
         node_version = command(['node', '--version'], started, env=clean).decode().strip()
         if not re.fullmatch(r'v\d+\.\d+\.\d+', node_version) or int(node_version.split('.')[0][1:]) < 22:
             raise ValueError('NODE_22_REQUIRED')
@@ -247,7 +279,10 @@ def attempt(args):
         config_path = root / 'worker.json'
         config_path.write_text(json.dumps(config))
         failure_stage = 'worker'
-        output = command([str(python), '-I', str(Path(__file__).resolve()), '_worker', '--config', str(config_path)], started, env=os.environ.copy())
+        # Keep the existing Bedrock worker authentication context, but make its
+        # MCP lookup use the same validated Node prerequisite as installation.
+        worker_env = {**os.environ, 'PATH': str(node_tools) + os.pathsep + os.environ.get('PATH', os.defpath)}
+        output = command([str(python), '-I', str(Path(__file__).resolve()), '_worker', '--config', str(config_path)], started, env=worker_env)
         if not evidence.is_file():
             raise ValueError('MISSING_TRIAL_EVIDENCE')
         print(output.decode(), end='')
@@ -287,6 +322,8 @@ def main():
     run.add_argument('--run-id', required=True)
     run.add_argument('--index', type=int, choices=range(1, 11), required=True)
     run.add_argument('--peer-directory', type=Path, required=True)
+    run.add_argument('--node-tools-dir', type=Path,
+                     help='Canonical absolute directory containing executable node and npm; defaults to the caller-installed Node directory.')
     run.add_argument('--release-ready', action='store_true')
     run.add_argument('--service-ready', action='store_true')
     aggregate = sub.add_parser('summary')

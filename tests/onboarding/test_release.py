@@ -2,9 +2,11 @@ import argparse
 import asyncio
 import io
 import json
+import os
 from pathlib import Path
 import tarfile
 import tempfile
+import time
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,6 +16,59 @@ import zavliq
 
 
 class ReleaseVerificationTests(unittest.TestCase):
+    def test_nvm_only_node_and_npm_execute_in_clean_install_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            node_tools = root / '.nvm/versions/node/v24.16.0/bin'
+            node_tools.mkdir(parents=True)
+            (node_tools / 'node').write_text("#!/bin/sh\nprintf 'v24.16.0\\n'\n")
+            # npm normally relies on /usr/bin/env node, so both lookups must work.
+            (node_tools / 'npm').write_text('#!/usr/bin/env node\n')
+            for name in ('node', 'npm'):
+                (node_tools / name).chmod(0o700)
+            install = root / 'fresh install'
+            install.mkdir()
+            caller = {'PATH': str(node_tools) + os.pathsep + '/synthetic/untrusted-bin',
+                      **{name: 'synthetic-not-a-credential' for name in ('GH_TOKEN', 'GITHUB_TOKEN',
+                         'AWS_SECRET_ACCESS_KEY', 'NPM_TOKEN', 'NODE_OPTIONS', 'PYTHONPATH', 'HTTPS_PROXY')}}
+            with patch.dict(os.environ, caller, clear=True):
+                selected = release.node_tools_directory()
+                clean = release.install_environment(install, selected)
+                self.assertEqual(selected, node_tools)
+                self.assertEqual(clean['PATH'].split(os.pathsep)[0], str(node_tools))
+                self.assertNotIn('/synthetic/untrusted-bin', clean['PATH'])
+                self.assertTrue(set(caller).difference({'PATH'}).isdisjoint(clean))
+                for name in ('node', 'npm'):
+                    self.assertEqual(release.command([name, '--version'], time.monotonic(), env=clean), b'v24.16.0\n')
+            self.assertEqual(release.node_tools_directory(node_tools), node_tools)
+            self.assertEqual(Path(clean['HOME']), install / 'home')
+            for key in ('NPM_CONFIG_USERCONFIG', 'NPM_CONFIG_GLOBALCONFIG'):
+                self.assertEqual(Path(clean[key]).parent, install)
+                self.assertEqual(Path(clean[key]).read_text(), '')
+            self.assertEqual(clean['NPM_CONFIG_REGISTRY'], 'https://registry.npmjs.org/')
+            self.assertEqual(clean['PIP_CONFIG_FILE'], os.devnull)
+
+    def test_node_prerequisite_rejects_missing_npm_and_ambiguous_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            tools = root / 'node tools'
+            tools.mkdir()
+            (tools / 'node').write_text('#!/bin/sh\nexit 0\n')
+            (tools / 'node').chmod(0o700)
+            with self.assertRaisesRegex(ValueError, 'NODE_AND_NPM_EXECUTABLES_REQUIRED'):
+                release.node_tools_directory(tools)
+            (tools / 'npm').write_text('#!/bin/sh\nexit 0\n')
+            (tools / 'npm').chmod(0o700)
+            alias = root / 'alias'
+            alias.symlink_to(tools, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'CANONICAL_NODE_TOOLS_DIRECTORY_REQUIRED'):
+                release.node_tools_directory(alias)
+            with self.assertRaisesRegex(ValueError, 'CANONICAL_NODE_TOOLS_DIRECTORY_REQUIRED'):
+                release.node_tools_directory(Path('relative/tools'))
+            with patch.dict(os.environ, {'PATH': str(root / 'missing')}, clear=True):
+                with self.assertRaisesRegex(ValueError, 'NODE_TOOLS_DIRECTORY_REQUIRED'):
+                    release.node_tools_directory()
+
     def test_checksums_and_redirects_fail_closed(self):
         self.assertEqual(release.manifest('a' * 64 + '  install.sh\n')['install.sh'], 'a' * 64)
         for content in ['a' * 64 + '  ../install.sh\n', ('a' * 64 + '  install.sh\n') * 2, 'invalid']:
@@ -77,7 +132,12 @@ class ReleaseVerificationTests(unittest.TestCase):
 
     def test_worker_timeout_preserves_unknown_timing_breakdown_and_manifest_pin(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
+            node_tools = root / '.nvm/versions/node/v24.16.0/bin'
+            node_tools.mkdir(parents=True)
+            for name in ('node', 'npm'):
+                (node_tools / name).write_text('#!/bin/sh\nexit 99\n')
+                (node_tools / name).chmod(0o700)
             peer = root / 'peer'
             peer.mkdir()
             (peer / 'identity.json').write_text('{}')
@@ -86,19 +146,32 @@ class ReleaseVerificationTests(unittest.TestCase):
             manifest = ''.join(f'{release.hashlib.sha256(body).hexdigest()}  {name}\n' for name, body in bodies.items()).encode()
             pin = release.hashlib.sha256(manifest).hexdigest()
             args = argparse.Namespace(release_ready=True, service_ready=True, peer_directory=peer,
-                run_id='release-timeout', index=1, version='v0.1.0', sha256sums_sha256=pin)
+                run_id='release-timeout', index=1, version='v0.1.0', sha256sums_sha256=pin,
+                node_tools_dir=node_tools)
             def fake_download(url, path, *unused):
                 path.write_bytes(manifest if path.name == 'SHA256SUMS' else bodies[path.name])
             def fake_command(command, *unused, **kwargs):
+                env = kwargs['env']
+                self.assertEqual(env['PATH'].split(os.pathsep)[0], str(node_tools))
+                if '_worker' not in command:
+                    for key in ('GH_TOKEN', 'AWS_SECRET_ACCESS_KEY', 'NODE_OPTIONS', 'PYTHONPATH', 'HTTPS_PROXY'):
+                        self.assertNotIn(key, env)
+                    self.assertNotIn('/synthetic/caller-bin', env['PATH'])
                 if command[0] == 'node': return b'v24.0.0\n'
                 if command[0] == 'sh':
                     self.assertEqual(command[command.index('--sha256sums-sha256') + 1], pin)
                     binary = Path(command[command.index('--install-dir') + 1]) / 'zavliq'
                     binary.parent.mkdir()
                     binary.write_bytes(b'synthetic executable')
-                if '_worker' in command: raise TimeoutError('synthetic worker timeout')
+                if '_worker' in command:
+                    # Bedrock worker authentication is deliberately retained;
+                    # the selected Node directory must override caller lookup.
+                    self.assertEqual(env['AWS_SECRET_ACCESS_KEY'], 'synthetic-not-a-credential')
+                    raise TimeoutError('synthetic worker timeout')
                 return b''
-            with patch.object(release, 'PRIVATE', root / 'private'), patch.object(release, 'EVIDENCE', root / 'evidence'), patch.object(release, 'require_ledger'), patch.object(release, 'download', side_effect=fake_download), patch.object(release, 'command', side_effect=fake_command), patch.object(release, 'unpack_node'), patch('release.platform.system', return_value='Linux'), patch('release.platform.machine', return_value='x86_64'):
+            caller = {'PATH': '/synthetic/caller-bin', 'AWS_SECRET_ACCESS_KEY': 'synthetic-not-a-credential',
+                      'GH_TOKEN': 'synthetic-not-a-credential', 'NODE_OPTIONS': '--synthetic'}
+            with patch.dict(os.environ, caller, clear=True), patch.object(release, 'PRIVATE', root / 'private'), patch.object(release, 'EVIDENCE', root / 'evidence'), patch.object(release, 'require_ledger'), patch.object(release, 'download', side_effect=fake_download), patch.object(release, 'command', side_effect=fake_command), patch.object(release, 'unpack_node'), patch('release.platform.system', return_value='Linux'), patch('release.platform.machine', return_value='x86_64'):
                 with self.assertRaises(TimeoutError): release.attempt(args)
             result = json.loads((root / 'evidence/release-timeout-01.json').read_text())
             self.assertFalse(result['within_five_minutes'])
