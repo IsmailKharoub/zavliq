@@ -24,6 +24,8 @@ jobs:
       - run: npm install --global pnpm@10.32.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Build deployable website image
+        run: docker build --platform linux/amd64 --build-arg VITE_ECHO_USER_ID=@echo:localhost --file infra/docker/web.Dockerfile --tag zavliq-web:ci .
       - name: Install pinned Rust toolchain
         run: |
           rustup toolchain install 1.97.1 --profile minimal

@@ -7,6 +7,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web apps/web
 COPY packages/skill packages/skill
 COPY docs/protocol.md docs/protocol.md
+COPY docs/install.md docs/install.md
 RUN pnpm install --filter @zavliq/web --frozen-lockfile
 RUN pnpm --filter @zavliq/web build
 
