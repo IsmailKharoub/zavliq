@@ -1,0 +1,78 @@
+{
+  "schema": "zavliq.recovery-standby-preparation.v1",
+  "completed_at": "2026-09-12T12:27:01.627352+00:00",
+  "phase": "standby_prepared_not_restored",
+  "ok": true,
+  "scope": "A separate isolated recovery host is prepared; production remains on its original host. This is not a restore drill or cutover.",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "base_manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+  "website_revision": "98e3f8997166d1b9debbb131cfe821af962c8c8a",
+  "website_manifest_sha256": "7c347ac2b8ec863429991e2a75ae23a6b59da96497a65f4edbb53cbad8355ee4",
+  "terraform_actions": {
+    "created": 2,
+    "changed": 0,
+    "destroyed": 0,
+    "existing_resources_unchanged": 24
+  },
+  "checks": {
+    "no_containers": true,
+    "no_volumes": true,
+    "no_application_configuration": true,
+    "no_current_pointer": true,
+    "no_zavliq_units": true,
+    "all_six_cached_ids_match_reviewed_artifacts": true,
+    "same_aws_instance_identity": true,
+    "temporary_ssh_alias_cleanup_still_exact": true,
+    "planned_command_exact_full_line_once": true,
+    "embedded_script_matches_reviewed_cloud_init": true,
+    "original_routing_static_ip_and_iam_unchanged": true,
+    "standby_operator_ssh_only": true,
+    "attested_ssh_host_key_verified": true
+  },
+  "runtime_prerequisites": {
+    "architecture": "linux/amd64",
+    "docker": "29.1.3",
+    "compose": "2.40.3 with Ubuntu package suffix",
+    "containerd": "2.2.1",
+    "image_store": "containerd",
+    "cached_image_ids": 6
+  },
+  "known_instance_monthly_subtotal_usd": 72,
+  "cost_scope": "Known Zavliq instances only, excluding other AWS charges.",
+  "bootstrap_provenance": {
+    "checked_at": "2026-09-12T12:27:02.712973+00:00",
+    "planned_command_exact_full_line_once": true,
+    "embedded_script_sha256": "a209533e3b64b747442be8dc18374a1b541ea7cb805913ad1007f27ae9b835e8",
+    "embedded_script_matches_reviewed_cloud_init": true,
+    "full_userdata_has_additional_wrapper": true,
+    "raw_user_data_sha256": "49aa81704519d057ad3a36a414d45e71ed9fd6c7313a31709d6b6ba2e5886e5e"
+  },
+  "retained_failures": [
+    "AWS datetime serialization in the local access cache was reconciled from retained complete attested fields; no second credential retrieval.",
+    "An overlong local SSH socket path was corrected before remote preparation commands.",
+    "Whole user-data file equality was invalid because Lightsail adds a wrapper; the exact submitted command and decoded script were verified separately."
+  ],
+  "private_proof_sha256": {
+    "final-proof.json": "619a4408a264b27ebebdbd89d952d9246763e2767868416c5d05dcf7c6f8e73a",
+    "apply-intent.json": "42cecc9024916a8233418d986e8e191dfd2cda15baa50eb240942d63efdc6351",
+    "apply-result.json": "f907aea089b26a323a35d631928d71b130a583195360bc2804f314241f7d85b6",
+    "cloud-proof.json": "3b16814de53be104d5925103a659539556d5f822e6ec6b038e39d2b5aa28ed57",
+    "host-preflight.json": "f95abc2b5c4432422141c0ec48f2370463c1739047e2ac8b1f69e8d606f49164",
+    "ssh-proof.json": "66a5061af10dbebdb819e23681618cc1908ae1958ddd996631472a1355a78dba",
+    "temporary-ssh-access.json": "36274ff406e915ab485d4064a52440d8ebe7d12b016619c4ad63a9b007dda945",
+    "access-cache-reconciliation.json": "3861fed242081f9122cbf082092c3394949dafb7c3f146e7623fdc52f1656dda",
+    "artifact-transfers.json": "f85402e4c83fb28f6100a819882ac190aeb974e5babafcb1801aee3aa61c9e90",
+    "artifacts-proof.json": "696b102669e7a14536072f92e9ca2f29583f4860816a8a70124e47f9a0b44687",
+    "userdata-proof.json": "05e9e563ace9b79408e0a6da4b0f7b6b58e9deb43d5f0a2dd5734945428ceae3",
+    "final-proof-userdata-wrapper-comparison.json": "2316bfe224c3271f3a950354d62c928c953f1fe20c34d261130029a2b46f7f27"
+  },
+  "remaining": [
+    "Reviewed maintenance fence and a final consistent snapshot preserving accepted writes.",
+    "Restored core, restricted canonical TLS, original-device recovery, restored Echo and measured RTO/RPO.",
+    "Explicit website reapplication and separately installed collector with current verified test classification.",
+    "Separate verified public opening and production workflow checks."
+  ],
+  "restore_verified": false,
+  "full_launch_verified": false,
+  "timestamp_scope": "completed_at uses the controller clock; bootstrap_provenance.checked_at uses the host clock. Their ordering is not a recovery-time measurement."
+}
