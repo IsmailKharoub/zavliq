@@ -1,0 +1,211 @@
+{
+  "schema": "zavliq.production-bundle.v1",
+  "activation_supported": false,
+  "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "architecture": "linux/amd64",
+  "source_archive_sha256": "2a96f82d9413c3adc8193e4335f6703f7f000923b709f11a24a04e03546a0c5e",
+  "native_runtime": {
+    "repository": "IsmailKharoub/zavliq",
+    "workflow": ".github/workflows/release.yml",
+    "run_id": 34675091452,
+    "head_sha": "2f76469b507c8745d4be5ef311f32774021143aa",
+    "target": "x86_64-unknown-linux-gnu",
+    "archive_sha256": "1aff746065944c43335508c267f57f89f64dcaaf3246fec409a46c00d896e8ea",
+    "binary_sha256": "1b9ab48464831519d4a90a003fca18594d2588b79f05b66ea7d9c46e5c49b329"
+  },
+  "images": {
+    "synapse": {
+      "ref": "zavliq-synapse:2f76469b507c8745d4be5ef311f32774021143aa",
+      "id": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7"
+    },
+    "control": {
+      "ref": "zavliq-control:2f76469b507c8745d4be5ef311f32774021143aa",
+      "id": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5"
+    },
+    "gateway": {
+      "ref": "zavliq-web:2f76469b507c8745d4be5ef311f32774021143aa-public-bfbbdfde184eb666",
+      "id": "sha256:1a368a99a18db87f8d1794c4bfc15f777774978c639ea43d4c644671f94f945f"
+    },
+    "echo": {
+      "ref": "zavliq-echo:2f76469b507c8745d4be5ef311f32774021143aa",
+      "id": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b"
+    },
+    "postgres": {
+      "ref": "postgres:17.11-alpine",
+      "id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+    }
+  },
+  "images_archive_sha256": "7375fc2dd8240f575026bd4e4f2fe299b92f8386386f5e50343160f09d520778",
+  "infra_hashes": {
+    "infra/.gitignore": "d0110eb740d8bb2f15c16bb85a318cfab27341aec880557284b1e8e29d0d8172",
+    "infra/Caddyfile": "8feeb0125c31ded70e91bd06d7522a986398edd0a3d005b256cd9a64282a6be4",
+    "infra/compose.local.yaml": "c6a1930fc4193eb9588282958067a427e9f9cc7d28c16b89606707fdcf3afe4e",
+    "infra/compose.production.yaml": "a1a68cde54879243205bfdbab70c7223a3e03c576a93099cc36742609ae92c06",
+    "infra/compose.staging.yaml": "0af2bee4e4f3d0566ce0dbdd31a1c7b836f98eb335924a659f166e9911361103",
+    "infra/compose.yaml": "15a6024904c362672be37f78385532d40ea4b0dfb8011732ecd17bf6e6783ae1",
+    "infra/docker/control.Dockerfile": "e0ce2b2eaa498bc411d859a44bc49981752590b1f144bf7ea870788c5043e758",
+    "infra/docker/control.Dockerfile.dockerignore": "632da244abbe707381263984b76d4d8d4667af8ed347484f2db157c0ac1d0878",
+    "infra/docker/echo-artifact.Dockerfile": "8d11a6ea26de0f84329f2d2dc94db7caa9846ded525a69da4d70c61770e59620",
+    "infra/docker/echo-artifact.Dockerfile.dockerignore": "8c67e47acc736d765897a9a379178ca9f134704b4c317711b99e68da529171bc",
+    "infra/docker/echo.Dockerfile": "1607b232e373275a5e63e407e9321825b45c80beaefd2e78b75fdf82c04b934c",
+    "infra/docker/echo.Dockerfile.dockerignore": "836d9ddfa4073ef61a9976079b514bebf5c4b615b74dcc9c8dbad28ebfa2a041",
+    "infra/docker/operations.Dockerfile": "ea6189bda98baf2e9ba1b4b733212f914582084b301e5b80b2797e5daaa27a0a",
+    "infra/docker/synapse.Dockerfile": "6ab212f7d1e509db7d4033a619f30538c21e908687e8ed68b18a5e3c33b824c0",
+    "infra/docker/synapse.Dockerfile.dockerignore": "632da244abbe707381263984b76d4d8d4667af8ed347484f2db157c0ac1d0878",
+    "infra/docker/web.Dockerfile": "c47fcc06a1d9e2004a459e254534a3babefb32137ce096bb606833ba9ef20c08",
+    "infra/docker/web.Dockerfile.dockerignore": "632da244abbe707381263984b76d4d8d4667af8ed347484f2db157c0ac1d0878",
+    "infra/github/backups.yml": "38b9a5fc95d8aea79e051fb925be3b62b8eb85231a69f25a258f88ec3206128f",
+    "infra/github/deploy.yml": "c804b20c74527fd8d418b650d06cfcb633d9e58d8a89adbabed18e738890820a",
+    "infra/scripts/backup.sh": "dc0bad361790aa4a7a3090fe9345a6ae7ad2f78ffd323561931c67c2dd7c80fa",
+    "infra/scripts/bootstrap-admin.py": "48a71ab265d9dff8661fb2ae6ac853a6d25c388012d1ea99764328250d4471ec",
+    "infra/scripts/build-release.sh": "783a061a2e75ccfe794e48c9bb6bcf99e44f2c7bbb9a36af1bb9dc71bdb216d0",
+    "infra/scripts/cloud-init.sh": "ace309e0932b0a4f32c4244ba1b9068511149310fdcb3dbefdbf2d153df9817f",
+    "infra/scripts/cloud-monitor.py": "1a4d095c662407cbe7541088d2c3f30d525187716edda52dd3f68813daff4d76",
+    "infra/scripts/compose.sh": "f1b6489ef507816e79c00f291ef8f5cef5b5b36286c7047914da26c2780df9d9",
+    "infra/scripts/configure-synapse.py": "eb351fc4d95171111414d73848ed196cfc4bb072c4c057c3472ef72218c81f16",
+    "infra/scripts/deploy-release.sh": "c9ad34aa15e3763f852354f4c228d7a132d2b65a045f042f758f275ff60575c8",
+    "infra/scripts/drill-fixture.py": "bc8bc6347b97ebf8a7b6f0bcc4311d2060e3812090019b7abc42d0fff82640c7",
+    "infra/scripts/echo-health.py": "a67a6a0466c9d2b3830742758a009541d472915440dc43144272c23026c5651c",
+    "infra/scripts/fetch-backup.py": "63267b7fee9a0660e70391dda0b3b4308978622281d7e9bcc7545f9216df740d",
+    "infra/scripts/healthcheck.py": "0f6471fa5129bee0742f3cfc3ab19f33c48de876ccc7c0497aaaed080c11155e",
+    "infra/scripts/init-environment.py": "314bb985b824584d37b5aaf89fcffcef97a411471e752accfa8e2f0bb3c0ce30",
+    "infra/scripts/install-systemd.sh": "fede76034311f5c30fa5c7ec151ba8f7d6c521c9bd547702759c700aad6307a6",
+    "infra/scripts/prepare-ssh.py": "c6bafd14aa3a79c095693e2520a0b33d3d64dc442d2b3f5766608ff19122e7e3",
+    "infra/scripts/prune-media.py": "4148f660e1f29d4fb3e45542492a6a33c75b35a5088493535d91553f48a98aa4",
+    "infra/scripts/restore.sh": "ab348d38c95b7dbd7b23f92191934c36f1ac9aed6a584123d15dbc16f46080e2",
+    "infra/scripts/rollback.sh": "2a01e0635cba2f6196074881ad805f46799de1e9cb04088ff6a5df524a439f27",
+    "infra/scripts/start-control.sh": "eb5699aec9c6a420bf89cb21f4a4bff0589223e3939bdf43f9bdedfd040c3616",
+    "infra/staging/begin_soak.py": "af2ba433525928e0931983736b3bdb263e6c6f8047a86774d46fec73405d2eb4",
+    "infra/staging/cloud_monitor.py": "740e753df401e12d6312e0dbb5f105d418a63e401b9ad6ec022c759e0ca45525",
+    "infra/staging/compose.echo.yaml": "018550ebbdbe385adb18bccbf62c86a23b0a46f1c284bf3f67b145093274cacf",
+    "infra/staging/deploy_bundle.py": "0d70975af9962ff7961debd262d3870f697bdf070f63ec0c1031a505de86897a",
+    "infra/staging/install.sh": "83123f508e4aa814f1643de6eae0e430fb4271d96e1a39fc0f18ae19ebfd40c4",
+    "infra/staging/issue_capability.py": "3111441f21f67cf44d4b17e9438e61212865342f2667d4930f3241afc18e232b",
+    "infra/staging/probe.py": "ef64867f67ab9d5028fd3a5bf51a0d0f3671a1e4cc31bcd31e20d28d7acc53a1",
+    "infra/staging/release_bundle.py": "3b27ffada58b7bd0ce75cfd51ffc7fc4420c9906ad1872c3b790049d7323875d",
+    "infra/staging/requirements.txt": "3b3f2cf63ba9bf4bc3929a4956ece525adda3d52f49ad9a337b0f9401d86b1ed",
+    "infra/staging/systemd/zavliq-stage-health.service": "6aa9bfff3143009cdeb3f7d2dbb4b7dab671a47dfccd46e2cacaa66c7875b07f",
+    "infra/staging/systemd/zavliq-stage-health.timer": "d4b6f15dd51139217ff414363a196cc5a3c8cfd44b004109402704fa52d45307",
+    "infra/staging/tests/test_capability.py": "87da4be154370fbdcc630bf0b1cd3a01786162284860262604e4f76017b1ef81",
+    "infra/staging/tests/test_release_bundle.py": "2635bcd23daf83022874c00f68d0a31ef9594569620fe9a46ff6b78ef7bc5acb",
+    "infra/staging/tests/test_soak.py": "0e9062516d55420bfe4dda5abd285cd6ea09b550ce513c17b57d792fe5c94fa4",
+    "infra/staging/upload.py": "805f0e6e67053de5a3aa238ed2438b530118e1fd7a1fe0f57e19fd6fb5ea1408",
+    "infra/staging/upload_latest.py": "7b9e05c2ac1fa32a37bd0702c89c92071c961806053b1a99f0d845484b378f0e",
+    "infra/systemd/zavliq-backup.service": "c3638d583985117a81499923254e7e3e4311039e60aadd0999bd517475d299ac",
+    "infra/systemd/zavliq-backup.timer": "563bd5955323eb089c41313590ddb90c0df63aa7f37cde8113a1971599a84c04",
+    "infra/systemd/zavliq-health.service": "a67dd753b9a600077be7ebfadd7df79f9d551488c359b89d2cb1a90fe38ed02c",
+    "infra/systemd/zavliq-health.timer": "9f7dc0c6960986eaa8cde966cc9237d97de4562fdcbfeb2acc82650efa93413a",
+    "infra/systemd/zavliq-retention.service": "f09761b4132ed92e28d6fa869060f396f57830576d3a802a40300739b68d9874",
+    "infra/systemd/zavliq-retention.timer": "459e77f33b9d3f4b9634f110e82f06b19024062fa7b372e927c4922de307ca54",
+    "infra/terraform/.terraform.lock.hcl": "f6f1f45d86c436ef4e665dec93d116bef5835df8b1c2141bda286288196080c0",
+    "infra/terraform/example.tfvars": "e486ab853db08a3180c9707696b1ab188749e21c32288f17420a9846b7542261",
+    "infra/terraform/main.tf": "cdf180233eb5baacfd3c3efd3787403c1aae66703b79ae62ca38f8e5c7e8b9ff",
+    "infra/terraform/monitoring.tf": "417df03b08e1007abdc5904d4bfd9a1cb25ba117da1e2f39aaa2c3c25b402524",
+    "infra/terraform/outputs.tf": "a3f47bd90ae530e03a3eadc092d5b9493d53b72721b4f8e8b5a58cc451030ec8",
+    "infra/terraform/variables.tf": "774e8f5408941aae0ad5d80b167803ef0cfcc134858b6e4eeacec792178cedf0",
+    "infra/terraform/versions.tf": "ed1d1ae1efb1dac203e414df439c71b3b840a9b0a001b3e0cdd55370bc6fbc2b",
+    "infra/terraform-notifications/.gitignore": "559f891eb5ec25036994cb93892c5532d2a41ce59ed4b6a45425a5b00a9c55e7",
+    "infra/terraform-notifications/.terraform.lock.hcl": "3b8693fce788c0cb14bcf3c9cd43e52ad77b2a712666c96f133b07879fde4d10",
+    "infra/terraform-notifications/main.tf": "1dca3c1cdfcf70c4d20f60ff2a01e295a0e649a8162c9b36354b30efe8ee9334",
+    "infra/terraform-stage-monitor/.gitignore": "69438a2c1e31364d0234f23b45a29a4c832883acaa7d18455de02c9bdbb13814",
+    "infra/terraform-stage-monitor/.terraform.lock.hcl": "f6f1f45d86c436ef4e665dec93d116bef5835df8b1c2141bda286288196080c0",
+    "infra/terraform-stage-monitor/main.tf": "877b67d9d2d2b26f2f5cc930b5c2d641b270ece5b96bc9420e073ef1e79e355f",
+    "infra/terraform-staging/.gitignore": "6a79ae2f3baa33beb32b552b29f86be4c132aa6c7fcdcf418f6d35d6ae7b9abe",
+    "infra/terraform-staging/.terraform.lock.hcl": "3b8693fce788c0cb14bcf3c9cd43e52ad77b2a712666c96f133b07879fde4d10",
+    "infra/terraform-staging/example.tfvars": "3668a6da30f59a4487c90cfe68e14c99db4928c34e8ea6dbef5fef73ef73bab2",
+    "infra/terraform-staging/main.tf": "b7841691e82bc5bfc81b31942cc5476d3108cc6f9620dd3a008b22b6cbd62aa3",
+    "infra/terraform-staging/outputs.tf": "b04f08bdd71b2970cd320f89355bc4b1c94b7f39460e56a3f7a8e0a43a09cee4",
+    "infra/terraform-staging/variables.tf": "0d1497e8b82391ef100227d506e0562c88843c1b8bf3e763fb093fe2c62a9831",
+    "infra/terraform-staging/versions.tf": "77e6147602b59ffc68e1738b2cc606a2bf3634e9f8c05b77717b08c5bb2147c8",
+    "infra/tests/test_fetch_backup.py": "8d0a9a2031335896d4afd3f286a20b2fba6c1762065246d07be3c99d803e2736"
+  },
+  "compose_overlay_sha256": "88f7b9c89bc0074ed759973013dcacdcb90e6d4dd3bd0f0f6ed423a76f46eb83",
+  "reviewed_stage": {
+    "manifest_sha256": "9876fdbd8ff444280517c71f32abb8d9a7e223a9185376e339f4d6bd62f8141e",
+    "images_archive_sha256": "e0109d25191a81b54fbd5144d9d73f5674d9984f29d9b8639669b6cfe7ca833b",
+    "images": {
+      "synapse": {
+        "ref": "zavliq-synapse:2f76469b507c8745d4be5ef311f32774021143aa",
+        "id": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7"
+      },
+      "control": {
+        "ref": "zavliq-control:2f76469b507c8745d4be5ef311f32774021143aa",
+        "id": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5"
+      },
+      "gateway": {
+        "ref": "zavliq-web:2f76469b507c8745d4be5ef311f32774021143aa",
+        "id": "sha256:447820da615925972b244173e0200ca6dcb8fd100649b517da917516a7ac9d71"
+      },
+      "echo": {
+        "ref": "zavliq-echo:2f76469b507c8745d4be5ef311f32774021143aa",
+        "id": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b"
+      },
+      "postgres": {
+        "ref": "postgres:17.11-alpine",
+        "id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+      }
+    },
+    "web_echo_user_id": "@echo:localhost"
+  },
+  "public_web": {
+    "build_inputs": {
+      "stage_manifest_sha256": "9876fdbd8ff444280517c71f32abb8d9a7e223a9185376e339f4d6bd62f8141e",
+      "web_bases_sha256": "019b851a21afd3759bf35ec74f5e9f4f5b076cb7376a2244062d9e21ac285c04",
+      "preparer_sha256": "e5af080f472c1f5c946d6e6bf0d2796836be8d75be78b400e0ea86d353645575",
+      "origin": "https://zavliq.com",
+      "web_echo_user_id": "@echo:zavliq.com",
+      "archived_dockerfile_sha256": "c47fcc06a1d9e2004a459e254534a3babefb32137ce096bb606833ba9ef20c08",
+      "pinned_dockerfile_sha256": "10a8c5e6382060ad005c8d40f0fd79cbc69369c5a3ce0486f28ef9773c377ec9"
+    },
+    "configuration_sha256": "bfbbdfde184eb66624054a00a843c5620e062a072e3d80c3082083e504bfde21",
+    "bases": {
+      "schema": "zavliq.public-web-bases.v1",
+      "architecture": "linux/amd64",
+      "images": {
+        "node": {
+          "ref": "node:24.21.0-bookworm-slim",
+          "id": "sha256:2fe369e969550cde8e867afc3fe370b260140cab4a23d467074295b42163d553",
+          "digest_ref": "docker.io/library/node@sha256:2fe369e969550cde8e867afc3fe370b260140cab4a23d467074295b42163d553"
+        },
+        "caddy": {
+          "ref": "caddy:2.11.4-alpine",
+          "id": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+          "digest_ref": "docker.io/library/caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
+        }
+      }
+    },
+    "command": [
+      "docker",
+      "buildx",
+      "build",
+      "--builder",
+      "default",
+      "--platform",
+      "linux/amd64",
+      "--pull=false",
+      "--load",
+      "-f",
+      "infra/docker/public-web.Dockerfile",
+      "-t",
+      "zavliq-web:2f76469b507c8745d4be5ef311f32774021143aa-public-bfbbdfde184eb666",
+      "--build-arg",
+      "VITE_ECHO_USER_ID=@echo:zavliq.com",
+      "--label",
+      "org.opencontainers.image.revision=2f76469b507c8745d4be5ef311f32774021143aa",
+      "--label",
+      "com.zavliq.stage-manifest.sha256=9876fdbd8ff444280517c71f32abb8d9a7e223a9185376e339f4d6bd62f8141e",
+      "--label",
+      "com.zavliq.web.echo-user-id=@echo:zavliq.com",
+      "."
+    ],
+    "source_changes": [
+      "Dockerfile FROM references pinned to reviewed cached digests"
+    ],
+    "configuration_change": {
+      "VITE_ECHO_USER_ID": {
+        "from": "@echo:localhost",
+        "to": "@echo:zavliq.com"
+      }
+    }
+  }
+}

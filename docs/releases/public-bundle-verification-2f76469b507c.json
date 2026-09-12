@@ -1,0 +1,79 @@
+{
+  "schema": "zavliq.public-bundle-verification.v1",
+  "recorded_at": "2026-09-12T07:28:53.639839+00:00",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "operator_preparer_commit": "1d0e690",
+  "preparer_sha256": "e5af080f472c1f5c946d6e6bf0d2796836be8d75be78b400e0ea86d353645575",
+  "manifest_file": "production-manifest-2f76469b507c.json",
+  "manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+  "source_archive_sha256": "2a96f82d9413c3adc8193e4335f6703f7f000923b709f11a24a04e03546a0c5e",
+  "native_runtime": {
+    "repository": "IsmailKharoub/zavliq",
+    "workflow": ".github/workflows/release.yml",
+    "run_id": 34675091452,
+    "head_sha": "2f76469b507c8745d4be5ef311f32774021143aa",
+    "target": "x86_64-unknown-linux-gnu",
+    "archive_sha256": "1aff746065944c43335508c267f57f89f64dcaaf3246fec409a46c00d896e8ea",
+    "binary_sha256": "1b9ab48464831519d4a90a003fca18594d2588b79f05b66ea7d9c46e5c49b329"
+  },
+  "images": {
+    "synapse": {
+      "ref": "zavliq-synapse:2f76469b507c8745d4be5ef311f32774021143aa",
+      "id": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7"
+    },
+    "control": {
+      "ref": "zavliq-control:2f76469b507c8745d4be5ef311f32774021143aa",
+      "id": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5"
+    },
+    "gateway": {
+      "ref": "zavliq-web:2f76469b507c8745d4be5ef311f32774021143aa-public-bfbbdfde184eb666",
+      "id": "sha256:1a368a99a18db87f8d1794c4bfc15f777774978c639ea43d4c644671f94f945f"
+    },
+    "echo": {
+      "ref": "zavliq-echo:2f76469b507c8745d4be5ef311f32774021143aa",
+      "id": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b"
+    },
+    "postgres": {
+      "ref": "postgres:17.11-alpine",
+      "id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+    }
+  },
+  "images_archive_sha256": "7375fc2dd8240f575026bd4e4f2fe299b92f8386386f5e50343160f09d520778",
+  "compose_overlay_sha256": "88f7b9c89bc0074ed759973013dcacdcb90e6d4dd3bd0f0f6ed423a76f46eb83",
+  "successful_preparation": {
+    "completed_at": "2026-09-12T07:12:39.077003+00:00",
+    "elapsed_seconds": 85.942,
+    "clean_infra_file_count": 81,
+    "same_archived_source": true,
+    "backend_images_preserved": true,
+    "source_stage_ready_and_unchanged": true
+  },
+  "preserved_failed_attempts": [
+    {
+      "classification": "DOCKER_ARCHIVE_IMAGE_PIN_MISMATCH",
+      "cause": "Docker containerd image IDs are OCI index digests; the original verifier assumed configuration digests.",
+      "docker_load_or_build_reached": false,
+      "resolution": "Verify exact tag-bound OCI index/manifest/config/layer graphs; actual saved archive passed standalone verification."
+    },
+    {
+      "classification": "EXACT_ARCHIVED_INFRA_REQUIRED",
+      "cause": "Two generated Python cache files were present beside the 81 matching archived infrastructure files.",
+      "docker_load_or_build_reached": false,
+      "resolution": "Construct a fresh input copy from the original verified archive, preserve active release and cache files, and disable Python bytecode for the preparation."
+    }
+  ],
+  "scope": {
+    "bundle_prepared": true,
+    "production_activated": false,
+    "public_tls_verified": false,
+    "public_browser_echo_verified": false,
+    "launch_verified": false
+  },
+  "remaining_checks": [
+    "Production initialization and canonical DNS/TLS",
+    "Actual public browser and Echo messaging",
+    "Production off-host backup, original-client recovery and alert delivery",
+    "Full final AWS load and 24-hour staging soak",
+    "Anonymous release installation and onboarding trials"
+  ]
+}

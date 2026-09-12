@@ -1,0 +1,47 @@
+{
+  "schema": "zavliq.private-bundle-retention.v1",
+  "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "verified_at": "2026-09-12T07:29:36.300427+00:00",
+  "scope": "Reviewed source and image artifacts only; no runtime state, keys or identity backups.",
+  "storage": "Private AWS S3, AES256, owner-only ACL, manifest/content-addressed keys outside the daily backup expiration prefix.",
+  "objects": [
+    {
+      "kind": "stage",
+      "artifact": "bundle",
+      "bytes": 390993920,
+      "sha256": "bfd05e0a1899575809abe163c47591baed6c20987fd12839138782b4b8fb0bf2",
+      "s3_checksum_verified": true,
+      "encrypted_at_rest": true,
+      "owner_only": true
+    },
+    {
+      "kind": "stage",
+      "artifact": "inventory",
+      "bytes": 14369,
+      "sha256": "e14b36d5436b19c49f12f2a2a42e70fa4a2a1e3e6b0a7ac0a191b3ca08d0db1b",
+      "s3_checksum_verified": true,
+      "encrypted_at_rest": true,
+      "owner_only": true
+    },
+    {
+      "kind": "public",
+      "artifact": "bundle",
+      "bytes": 414371840,
+      "sha256": "093f015eca893027e9a3113ee3a60805a65b1e9b3c81410463d164dabcf0efec",
+      "s3_checksum_verified": true,
+      "encrypted_at_rest": true,
+      "owner_only": true
+    },
+    {
+      "kind": "public",
+      "artifact": "inventory",
+      "bytes": 15316,
+      "sha256": "05ad4cbf81f75393bea4ccaf19243e1b42c12d1b27a83f5911519971d5e04eee",
+      "s3_checksum_verified": true,
+      "encrypted_at_rest": true,
+      "owner_only": true
+    }
+  ],
+  "operator_receipt_sha256": "db73d8e001579c8189f4f56840a449ee0977df6b973d57491173a44398653dca",
+  "launch_verified": false
+}

@@ -1,0 +1,117 @@
+{
+  "schema": "zavliq.private-soak-start.v1",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "operator_monitor_commit": "1ecf87506fe0fcd3b4e651decb3dd9834157a8af",
+  "operator_monitor_hashes": {
+    "begin_soak.py": "c70aba8e044adab14f2fa63a3d95c6b51ef166d23f9cd4f8be913aeef84c6c5d",
+    "probe.py": "a2495a5ceb176f92f7465583bae6dafc0c95ae23f13f1840102d6d3ee515d398"
+  },
+  "started_at_utc": "2026-09-12T07:37:31+00:00",
+  "earliest_24_hour_point_utc": "2026-09-13T07:37:31+00:00",
+  "marker_sha256": "fc4052a996bcfab6aac30a5be1ee99841edaf0193d04ecca4bd84210f96ec4d8",
+  "images": {
+    "synapse": {
+      "image_id": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7",
+      "image_ref": "zavliq-synapse:2f76469b507c8745d4be5ef311f32774021143aa",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    },
+    "control": {
+      "image_id": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5",
+      "image_ref": "zavliq-control:2f76469b507c8745d4be5ef311f32774021143aa",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    },
+    "gateway": {
+      "image_id": "sha256:447820da615925972b244173e0200ca6dcb8fd100649b517da917516a7ac9d71",
+      "image_ref": "zavliq-web:2f76469b507c8745d4be5ef311f32774021143aa",
+      "running": true,
+      "paused": false,
+      "health": ""
+    },
+    "postgres": {
+      "image_id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "image_ref": "postgres:17.11-alpine",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    },
+    "echo": {
+      "image_id": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b",
+      "image_ref": "zavliq-echo:2f76469b507c8745d4be5ef311f32774021143aa",
+      "running": true,
+      "paused": false,
+      "health": "healthy"
+    }
+  },
+  "final_service_set": true,
+  "old_samples_credited": false,
+  "first_scheduled_sample": {
+    "captured_at": "2026-09-12T07:38:54.313871+00:00",
+    "marker_sha256": "fc4052a996bcfab6aac30a5be1ee99841edaf0193d04ecca4bd84210f96ec4d8",
+    "first_sample_id": 270,
+    "first_sample_checked_at": 1789198680,
+    "first_sample_checked_at_utc": "2026-09-12T07:38:00+00:00",
+    "first_sample_ok": true,
+    "scheduled_unit_result": {
+      "operation": "stage_health",
+      "checked_at": 1789198680,
+      "ok": true,
+      "uploaded": true,
+      "soak_started": true
+    },
+    "details": {
+      "ok": true,
+      "checked_at": 1789198680,
+      "checks": [
+        {
+          "check": "/health",
+          "ok": true,
+          "latency_ms": 38
+        },
+        {
+          "check": "/_matrix/client/versions",
+          "ok": true,
+          "latency_ms": 3
+        },
+        {
+          "check": "/.well-known/matrix/client",
+          "ok": true,
+          "latency_ms": 1
+        },
+        {
+          "check": "disk",
+          "ok": true,
+          "used_percent": 14.6
+        },
+        {
+          "check": "backup_age",
+          "ok": true,
+          "age_hours": 1.7
+        },
+        {
+          "check": "bound_service_images",
+          "ok": true
+        }
+      ]
+    },
+    "summary": {
+      "scope": "private-backend",
+      "started_at": 1789198651,
+      "checked_at": 1789198680,
+      "expected_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+      "elapsed_seconds": 29,
+      "samples": 1,
+      "failed_samples": 0,
+      "maximum_gap_seconds": 29,
+      "continuity_passed": true,
+      "complete": false,
+      "final_service_set": true,
+      "final_service_soak_passed": false
+    }
+  },
+  "complete": false,
+  "launch_verified": false
+}
