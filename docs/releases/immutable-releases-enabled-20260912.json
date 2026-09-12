@@ -1,0 +1,22 @@
+{
+  "operation": "enable_repository_immutable_releases",
+  "started_at": "2026-09-12T06:14:47.984313+00:00",
+  "repository_id": 1366801339,
+  "repository": "IsmailKharoub/zavliq",
+  "before": {
+    "enabled": false,
+    "enforced_by_owner": false
+  },
+  "preflight_sha256": "70bb1db2b8c2b47347545d61094e51c03e72221144a38fcb9276ccee48c724b4",
+  "publication_performed": false,
+  "visibility_changed": false,
+  "release_id": 387457474,
+  "draft_target": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "completed": true,
+  "after": {
+    "enabled": true,
+    "enforced_by_owner": false
+  },
+  "completed_at": "2026-09-12T06:14:48.991202+00:00",
+  "draft_and_assets_unchanged": true
+}

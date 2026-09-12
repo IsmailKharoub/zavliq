@@ -1,0 +1,27 @@
+{
+  "schema": "zavliq-fixture-contract-correction-v1",
+  "checked_at": "2026-09-12T06:25:54.376832+00:00",
+  "run_id": "recovery-2f76469b507c-871bca36",
+  "failed_attempt": "fbe78a0f4739c90e",
+  "classification": "fixture expected raw descriptor but frozen full inbox intentionally redacts media keys",
+  "prior_driver_sha256": "85cc4bc1271e8e984b16121d2de3b0f7c2d9587f4fa4ef95ff7a2fd54605e296",
+  "corrected_driver_sha256": "025663b0d9b7153ca752a836ba43347e6a48a449048cb6d174ea6802b1ba7837",
+  "clients_closed": true,
+  "original_identity_files_unchanged": true,
+  "same_restore_preserved": {
+    "encrypted_backup_sha256": "a530fcbf44aa895f0144a2346a358f40ebe8774899f2f691aa2129cb6c41e7b9",
+    "project": "zavliq-recovery-2f76469b507c",
+    "restore_completed_at": "2026-09-12T06:06:33.452958+00:00"
+  },
+  "original_empty_inbox_proof_preserved": true,
+  "private_stored_media_shape": {
+    "file_message": true,
+    "version_v2": true,
+    "key_present": true,
+    "iv_present": true,
+    "hashes_present": true,
+    "plaintext_url_absent": true
+  },
+  "keys_or_contents_exported": false,
+  "backend_or_native_changed": false
+}

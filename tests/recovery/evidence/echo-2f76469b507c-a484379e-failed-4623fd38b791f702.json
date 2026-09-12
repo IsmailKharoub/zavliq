@@ -1,0 +1,27 @@
+{
+  "attempt_id": "4623fd38b791f702",
+  "checks": [],
+  "driver_sha256": "895fca2734200b85ca13a0037fab323432844e527e6c33e64752dd9c1ea6d989",
+  "error_code": "PRIVATE_DIRECTORY_PERMISSIONS_REQUIRED",
+  "finished_at": "2026-09-12T05:49:54.859879+00:00",
+  "native_binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+  "ok": false,
+  "provenance": {
+    "image_ids": {
+      "control": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5",
+      "echo": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b",
+      "gateway": "sha256:447820da615925972b244173e0200ca6dcb8fd100649b517da917516a7ac9d71",
+      "postgres": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "synapse": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7"
+    },
+    "native_binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+    "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+    "source_archive_sha256": "2a96f82d9413c3adc8193e4335f6703f7f000923b709f11a24a04e03546a0c5e"
+  },
+  "requested_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "run_id": "echo-2f76469b507c-a484379e",
+  "schema": "zavliq-final-echo-v1",
+  "started_at": "2026-09-12T05:49:54.820336+00:00",
+  "status": "failed",
+  "stores_preserved": true
+}

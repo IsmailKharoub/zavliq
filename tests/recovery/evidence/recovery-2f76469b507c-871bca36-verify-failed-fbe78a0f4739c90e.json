@@ -1,0 +1,25 @@
+{
+  "attempt_id": "fbe78a0f4739c90e",
+  "error_code": "ENCRYPTED_ATTACHMENT_DESCRIPTOR_REQUIRED",
+  "failed_at": "2026-09-12T06:18:44.907112+00:00",
+  "native_binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+  "phase": "verify",
+  "provenance": {
+    "image_ids": {
+      "control": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5",
+      "echo": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b",
+      "gateway": "sha256:447820da615925972b244173e0200ca6dcb8fd100649b517da917516a7ac9d71",
+      "postgres": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "synapse": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7"
+    },
+    "native_binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+    "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+    "source_archive_sha256": "2a96f82d9413c3adc8193e4335f6703f7f000923b709f11a24a04e03546a0c5e"
+  },
+  "requested_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "run_id": "recovery-2f76469b507c-871bca36",
+  "schema": "zavliq-e2ee-server-restore-v1",
+  "started_at": "2026-09-12T06:18:41.797144+00:00",
+  "status": "failed",
+  "stores_preserved": true
+}
