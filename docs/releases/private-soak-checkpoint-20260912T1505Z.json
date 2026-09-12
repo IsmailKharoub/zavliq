@@ -1,0 +1,32 @@
+{
+  "schema": "zavliq.private-soak-checkpoint.v1",
+  "checked_at": "2026-09-12T15:05:16+00:00",
+  "source_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "scope": "Read-only aggregate checkpoint of the existing private-backend final-service soak; no production outage assertion.",
+  "soak_started_at": "2026-09-12T07:37:31+00:00",
+  "elapsed_seconds": 26865,
+  "samples": 448,
+  "failed_samples": 1,
+  "maximum_gap_seconds": 60,
+  "continuity_passed": true,
+  "duration_complete": false,
+  "final_service_soak_passed": false,
+  "recorded_failure": {
+    "checked_at": "2026-09-12T14:16:00+00:00",
+    "failed_checks": [
+      "bound_service_images"
+    ],
+    "other_recorded_checks_passed": true,
+    "exact_failed_container_state_recorded": false
+  },
+  "latest_sample_at": "2026-09-12T15:05:00+00:00",
+  "latest_sample_passed": true,
+  "current_exact_images_running_healthy_unpaused": true,
+  "marker_unchanged": true,
+  "monitor_hashes_unchanged": true,
+  "failed_record_retained": true,
+  "sampler_or_service_changes_during_check": false,
+  "gate": "The existing zero-failure rule remains unchanged. This marker cannot become a passing soak merely by reaching 24 hours; investigation and a separately reviewed decision are required.",
+  "diagnostic_limit": "The sample retains only a combined service-state/image check. It does not identify a specific failed container or establish an image mismatch or outage.",
+  "private_proof_sha256": "6ce03c11600674e36a9d8bb2b69951ed779c5ac987fb7f72d9a28fc63aff5e94"
+}
