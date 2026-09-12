@@ -12,8 +12,8 @@ import time
 def snapshot(project, services):
     result = {}
     for name in services:
-        value = subprocess.check_output(['docker', 'inspect', '--format', '{{.Image}}|{{.Config.Image}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}', project + '-' + name + '-1'], text=True, timeout=5).strip().split('|')
-        result[name] = {'image_id': value[0], 'image_ref': value[1], 'running': value[2] == 'true', 'health': value[3]}
+        value = subprocess.check_output(['docker', 'inspect', '--format', '{{.Image}}|{{.Config.Image}}|{{.State.Running}}|{{.State.Paused}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}', project + '-' + name + '-1'], text=True, timeout=5).strip().split('|')
+        result[name] = {'image_id': value[0], 'image_ref': value[1], 'running': value[2] == 'true', 'paused': value[3] != 'false', 'health': value[4]}
     return result
 
 
@@ -28,7 +28,7 @@ def main():
     services = ['synapse', 'control', 'gateway', 'postgres'] + ([] if args.without_echo else ['echo'])
     images = snapshot('zavliq-load', services)
     for name, image in images.items():
-        if not image['running'] or image['health'] not in ('', 'healthy'):
+        if not image['running'] or image['paused'] or image['health'] not in ({'', 'healthy'} if name == 'gateway' else {'healthy'}):
             parser.error('Every selected service must be running and healthy.')
         if name != 'postgres' and not image['image_ref'].endswith(':' + args.revision):
             parser.error('Selected images do not all match the requested source revision.')

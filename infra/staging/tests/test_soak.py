@@ -5,7 +5,7 @@ import unittest
 
 BASE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE))
-from probe import summarize, upload_failure
+from probe import summarize, upload_failure, bound_images_healthy
 
 
 class SoakEvidence(unittest.TestCase):
@@ -34,6 +34,20 @@ class SoakEvidence(unittest.TestCase):
         result = summarize(self.rows, {**self.marker, 'started_at': 87400}, 87400)
         self.assertEqual(result['samples'], 1)
         self.assertFalse(result['complete'])
+
+    def test_paused_or_unchecked_echo_cannot_count_as_healthy(self):
+        expected = {'echo': {'image_id': 'sha256:echo'}, 'gateway': {'image_id': 'sha256:web'}}
+        actual = {name: {**image, 'running': True, 'paused': False, 'health': 'healthy' if name == 'echo' else ''}
+                  for name, image in expected.items()}
+        self.assertTrue(bound_images_healthy(actual, expected))
+        actual['echo']['paused'] = True
+        self.assertFalse(bound_images_healthy(actual, expected))
+        actual['echo']['paused'] = False
+        actual['echo']['health'] = ''
+        self.assertFalse(bound_images_healthy(actual, expected))
+        actual['echo']['health'] = 'healthy'
+        del actual['echo']['paused']
+        self.assertFalse(bound_images_healthy(actual, expected))
 
     def test_health_journal_logs_only_known_upload_error_and_static_action(self):
         result = upload_failure('{"code":"CAPABILITY_EXPIRED_OR_INVALID","action":"private-value"}')

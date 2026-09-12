@@ -44,6 +44,13 @@ def summarize(rows, marker, now):
             'final_service_soak_passed': complete and marker['final_service_set']}
 
 
+def bound_images_healthy(actual, expected):
+    return all(actual[name]['image_id'] == image['image_id'] and actual[name]['running']
+               and actual[name].get('paused') is False
+               and actual[name]['health'] in ({'', 'healthy'} if name == 'gateway' else {'healthy'})
+               for name, image in expected.items())
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--origin', default='http://localhost:19180', choices=['http://localhost:19180', 'http://127.0.0.1:19180'])
@@ -67,7 +74,7 @@ def main():
         marker = json.loads(marker_path.read_text()) if marker_path.exists() else None
         if marker:
             actual = snapshot(marker['project'], marker['expected_images'])
-            same = all(actual[name]['image_id'] == expected['image_id'] and actual[name]['running'] and actual[name]['health'] in ('', 'healthy') for name, expected in marker['expected_images'].items())
+            same = bound_images_healthy(actual, marker['expected_images'])
             report['checks'].append({'check': 'bound_service_images', 'ok': same})
             report['ok'] = report['ok'] and same
     except Exception as error:
