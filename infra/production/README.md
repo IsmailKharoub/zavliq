@@ -4,13 +4,13 @@
 
 The inputs must be the operator-reviewed final stage bundle and its exact manifest SHA256, the matching draft Linux native archive, and a separately reviewed pin file for the two cached website base images. The frozen stage bundle records native archive/binary hashes but does not include the native archive itself, so the explicit native input is required. No native executable is compiled or run by this preparer.
 
-The preparer verifies source and Docker archive hashes, the exact archived infrastructure file set, Linux native archive/binary hashes and workflow/source provenance, and Docker archive image configuration hashes, tags, architecture, and Echo provenance labels. Synapse, control, PostgreSQL, and Echo retain their actual stage image IDs. Only the website is built, from the same source archive with `VITE_ECHO_USER_ID=@echo:zavliq.com`. Its generated Dockerfile changes only the two `FROM` references to the reviewed immutable base digests; the original archived source is retained unchanged.
+The preparer verifies source and Docker archive hashes, the exact archived infrastructure file set, Linux native archive/binary hashes and workflow/source provenance, and Docker archive image IDs, tags, architecture, and Echo provenance labels. Docker's containerd store can report an OCI index digest as the image ID. The verifier binds each exact tag to that digest and follows the selected Linux amd64 manifest, config and layer descriptors, checking sizes, compressed hashes, unpacked layer hashes, and the legacy manifest mapping. Missing blobs are permitted only for unselected platforms or optional metadata; required runnable graphs must be complete. Classic archives retain config-ID verification. Synapse, control, PostgreSQL, and Echo retain their actual stage image IDs. Only the website is built, from the same source archive with `VITE_ECHO_USER_ID=@echo:zavliq.com`. Its generated Dockerfile changes only the two `FROM` references to the reviewed immutable base digests; the original archived source is retained unchanged.
 
 Public source directories inside the extracted workspace are normalized to `0755`, including implicit parent directories. Regular-file modes, including executable bits, are preserved. The outer temporary workspace and output bundle remain private (`0700`). This prevents a restrictive operator umask from creating source directories that Docker would copy into images with inaccessible permissions for unprivileged users.
 
 Use an exclusively assigned native Linux amd64 Docker daemon, its `default` context, and the `default` buildx builder with the `docker` driver. An ARM/emulated daemon, other builder driver, missing/mismatched base image, or conflicting existing stage/public tag fails the preparation. The helper never pulls images or bootstraps a builder. Its one website build passes `--pull=false`, and both bases use immutable digest references. The base images must already be cached on that same daemon. Website dependency installation still uses the archived pnpm lockfile and can require normal package-registry access; this is not an offline dependency build.
 
-The separate base-pin input has this schema. Replace every placeholder with reviewed values; tags alone or the local cache alone are not proof of review. `digest_ref` is the immutable manifest reference that resolves to the given local amd64 image configuration ID; the two hashes need not be equal.
+The separate base-pin input has this schema. Replace every placeholder with reviewed values; tags alone or the local cache alone are not proof of review. `digest_ref` is the immutable manifest reference that resolves to the given local amd64 image ID. Depending on the Docker image store, that ID can be a configuration or index digest; the two hashes need not be equal.
 
 ```json
 {
@@ -19,12 +19,12 @@ The separate base-pin input has this schema. Replace every placeholder with revi
   "images": {
     "node": {
       "ref": "node:24.21.0-bookworm-slim",
-      "id": "sha256:REVIEWED_AMD64_IMAGE_CONFIG_SHA256",
+      "id": "sha256:REVIEWED_AMD64_IMAGE_ID_SHA256",
       "digest_ref": "docker.io/library/node@sha256:REVIEWED_MANIFEST_SHA256"
     },
     "caddy": {
       "ref": "caddy:2.11.4-alpine",
-      "id": "sha256:REVIEWED_AMD64_IMAGE_CONFIG_SHA256",
+      "id": "sha256:REVIEWED_AMD64_IMAGE_ID_SHA256",
       "digest_ref": "docker.io/library/caddy@sha256:REVIEWED_MANIFEST_SHA256"
     }
   }
@@ -88,20 +88,149 @@ An upgrade first stops the previously active schedules and takes the existing co
 
 The transition writes an intent record before changing configuration or pointers. It stops the previous gateway/Echo, starts the pinned backend, explicitly provisions the operator-owned ordinary `@echo:zavliq.com` identity through the existing Echo bootstrap, and starts the pinned public gateway and worker. It checks exact running image IDs, container health, certificate-verified HTTPS, security headers and canonical discovery, then takes a post-activation encrypted backup. It preserves the prior release/configuration and records content-free evidence under `/var/lib/zavliq/deployments/`. This is a maintenance transition with a period of unavailability, not a zero-downtime rollout. Container health does not prove an actual Echo reply; independent messaging, browser, backup restore, off-host upload, alert delivery and launch gates remain outstanding until separately verified.
 
-The activator installs the established health, backup and retention systemd units, plus production drop-ins that route backup and retention through the new pinned wrapper. It enables schedules only after activation and its local backup succeed. Routine operator commands are:
+The activator installs the established health, backup and retention systemd units, plus production drop-ins for the reviewed operator tools. Backup and retention use the pinned wrapper. The health command requires a ready deployment and exact running image IDs for all five services, including a healthy Echo worker. It also checks canonical HTTPS/discovery, disk headroom and the timestamped successful local backup. A 35-second total deadline fits inside the service's 45-second limit; failures publish content-free results, while a missing/stale producer remains a monitoring failure. The public health JSON is readable even under the private operator umask. It verifies backup freshness and the checksum record's structure; activation/upload separately hash the archive. Schedules start only after activation and its local backup succeed. Routine operator commands are:
 
 ```sh
 sudo bash /etc/zavliq/production-compose.sh --profile echo ps
 sudo python3 /opt/zavliq/production-tools/activate.py backup
 sudo python3 /opt/zavliq/production-tools/activate.py retention
+sudo python3 /opt/zavliq/production-tools/activate.py health
 ```
 
 Use this wrapper for production maintenance; the archived generic `compose.sh` omits the public image overlay. The wrapper verifies the active manifest, namespace, Compose inputs and overlay before use, refuses build/pull/down and configuration overrides, and always selects `zavliq-production`. It does not print private configuration or credential files.
 
 ## Failure and rollback limits
 
-A backup failure before the transition keeps the old ready marker/configuration and restores previously active schedules. Once a transition may have touched state, a failure records `failed` and attempts to stop schedules and writers while preserving images and volumes. Failure to write the active marker does not skip those stop attempts; available evidence records `marker_write_incomplete`. Partial pointer/configuration failures remain operator recovery work. Inspect the evidence and actual container state; do not assume a failed stop completed.
+A backup failure before the transition keeps the old ready marker/configuration and restores previously active schedules. Once a transition may have touched state, a failure records `failed`, disables and stops owned timers, stops any maintenance services already triggered by those timers, and then stops writers while preserving images and volumes. This also keeps failed deployments from restarting scheduled work after a reboot. Failure to write the active marker does not skip those stop attempts; available evidence records `marker_write_incomplete`. Partial pointer/configuration failures remain operator recovery work. Inspect the evidence and actual container state; do not assume a failed stop completed. Running-image checks also reject paused containers even when Docker retains a cached healthy result.
 
-There is no automatic rollback and no rollback subcommand. Ordinary activation refuses a failed/in-progress current marker and any previously attempted bundle ID, including a historical successful release. Neither this tool nor the generic `rollback.sh` should be used to infer database compatibility. Preserve previous artifacts and pre-update backups. A schema-compatible rollback needs a separately reviewed manual recovery procedure with the previous exact image overlay; incompatible or uncertain schemas require restoration into a fresh isolated target followed by original-identity and encrypted-history verification. Do not delete failed-attempt evidence, regenerate secrets, remove volumes, or clear markers to force a retry.
+There is no automatic rollback and no rollback subcommand. Ordinary activation refuses a failed/in-progress current marker and any previously attempted bundle ID, including a historical successful release. Neither this tool nor the generic `rollback.sh` should be used to infer database compatibility. Preserve previous artifacts and pre-update backups. A schema-compatible rollback needs a separately reviewed manual recovery procedure with the previous exact image overlay; incompatible or uncertain schemas require the separately reviewed fresh replacement procedure below, followed by original-identity and encrypted-history verification. Do not delete failed-attempt evidence, regenerate secrets, remove volumes, or clear markers to force a retry.
 
 The offline suite uses real local bundle archives, the actual archived backup script and real restrictive-umask extraction; host tools and activation HTTPS are mocked. It covers successful first activation/upgrade, public image/network guards, binary backup streams, pointer collisions, pre-transition backup failure, partial configuration writes, persistent marker-write failure, and refusal to downgrade after a possible migration. A short real Bash subprocess test checks EXIT-trap execution on timeout. A separate local `docker compose config` check accepted all nine generated image IDs/build resets and expected network/port settings without creating containers. No production build, activation, account provisioning, cloud write or live rollback has been performed by these checks.
+
+## Restore an existing public network on a fresh replacement host
+
+`restore.py` is a separate, explicit recovery path. It imports the reviewed production verifier/activator helpers, restores the existing snapshot format, and adopts the restored state without calling ordinary activation or either identity-provisioning path. It never builds/pulls images, opens firewalls, changes DNS, starts clients, or accepts the primary age identity as a transport credential. Its host operations require separate operator authorization. The offline tests below are not a production recovery drill.
+
+Use an exclusively assigned fresh native amd64 host and the default Docker context/daemon. The local project remains `zavliq-production`; it is isolated by a separate host, not a temporary project followed by volume renaming. The daemon must have no containers, volumes or custom networks. `/etc/zavliq` must contain only the reviewed private `operations.env`, with the original age **public** backup recipient and canonical public URL. Do **not** run environment initialization or start containers first. Existing current/active/previous pointers, unresolved transitions, restore attempts or Zavliq units fail preflight. Upload the matching protected public bundle and install all three reviewed tools (`restore.py`, `activate.py`, `prepare_bundle.py`) under `/opt/zavliq/production-tools/`.
+
+The source must be an existing `zavliq.com` production snapshot. A `localhost` stage archive cannot enter this path. The public bundle must be the reviewed exact images that wrote the snapshot, including the original PostgreSQL image/major version. The archive must contain the original four secrets, signing key, service token, policy/control state, media, and complete Echo runtime/inbox/crypto store and journal. Recovery never provisions a replacement Echo device. Server backups do not contain other clients' E2EE keys.
+
+### Prepare transport off AWS
+
+Keep the primary age identity on the operator's trusted recovery machine, outside AWS. Verify the selected encrypted archive against its independently reviewed SHA before decrypting. Use a fresh private directory and a new age transport identity for this one transfer:
+
+```sh
+umask 077
+# On the trusted OFF-HOST recovery machine only:
+age --decrypt --identity /OFFLINE/PRIMARY_BACKUP.key \
+  --output /OFFLINE/RECOVERY/snapshot.tar /OFFLINE/RECOVERY/original.tar.age
+age-keygen -o /OFFLINE/RECOVERY/transport.key
+age-keygen -y /OFFLINE/RECOVERY/transport.key > /OFFLINE/RECOVERY/transport-recipient.txt
+age --encrypt --recipient "$(cat /OFFLINE/RECOVERY/transport-recipient.txt)" \
+  --output /OFFLINE/RECOVERY/snapshot.transport.age /OFFLINE/RECOVERY/snapshot.tar
+```
+
+Record the original ciphertext, transport ciphertext and plaintext tar SHA256 and byte lengths in the input receipt below. Obtain the snapshot `created_at` from the decrypted archive on that trusted machine. Copy only the one-use **transport** key, transport ciphertext, protected receipt and reviewed public bundle to the replacement. Never copy the primary identity or the plaintext tar. Remove the trusted machine's temporary plaintext after transport verification under the operator's secure storage procedure.
+
+The replacement checks the supplied transport identity's derived public recipient against the receipt and refuses the primary recipient or an unrelated key. It verifies transport bytes/hash, age decryption and plaintext bytes/hash before extraction or state creation. It deletes a matched transport key immediately after successful decryption, or on a decryption failure; an unrelated key is refused and left untouched. Its temporary plaintext is removed on exit. This does not promise forensic erasure, protection from an unclean host crash, or secure deletion on underlying storage. Inspect leftover private temporary material after interruption before reusing the replacement.
+
+Input receipt schema (all placeholders must be replaced with operator-reviewed values):
+
+```json
+{
+  "schema": "zavliq.production-restore-input.v1",
+  "restore_id": "recovery-YYYYMMDD-UNIQUE",
+  "target_machine_id": "32_LOWERCASE_HEX_FROM_REPLACEMENT_ETC_MACHINE_ID",
+  "bundle_id": "REVIEWED_PUBLIC_BUNDLE_ID",
+  "manifest_sha256": "REVIEWED_PUBLIC_MANIFEST_SHA256",
+  "revision": "EXACT_SOURCE_REVISION",
+  "images": "COPY_THE_EXACT_IMAGES_OBJECT_FROM_THE_REVIEWED_PUBLIC_MANIFEST",
+  "server_name": "zavliq.com",
+  "origin": "https://zavliq.com",
+  "source_binding_reviewed": true,
+  "primary_identity_off_host": true,
+  "transport_key_single_use": true,
+  "fresh_host_isolated": true,
+  "primary_recipient": "ORIGINAL_AGE_PUBLIC_RECIPIENT",
+  "transport_recipient": "NEW_DIFFERENT_AGE_PUBLIC_RECIPIENT",
+  "original": {
+    "name": "zavliq-YYYYMMDDTHHMMSSZ.tar.age",
+    "created_at": "YYYY-MM-DDTHH:MM:SSZ",
+    "sha256": "REVIEWED_ORIGINAL_CIPHERTEXT_SHA256",
+    "bytes": 12345
+  },
+  "transport": {"sha256": "TRANSPORT_CIPHERTEXT_SHA256", "bytes": 12345},
+  "plaintext": {"sha256": "EXACT_DECRYPTED_TAR_SHA256", "bytes": 12345}
+}
+```
+
+Use a lowercase restore ID of 8–64 letters/digits/hyphens. `images` must be an object, not the explanatory placeholder string. These statements are **operator attestations**, not cryptographic proof of source history. Existing archives contain a source revision but omit the public manifest hash/image receipt; establish that association from retained deployment evidence and independently reviewed inputs. If the archive-to-manifest association cannot be established, stop. This tool does not change the backup format/uploader or infer the binding from an S3 timestamp. The tool verifies the transport/plaintext hashes locally; the original encrypted archive hash remains the separately verified off-host binding.
+
+Keep the receipt and transport key root-owned `0600`, in protected private directories. Pin the receipt's SHA separately when invoking:
+
+```sh
+sudo python3 /opt/zavliq/production-tools/restore.py prepare \
+  --restore-id REVIEWED_LOWERCASE_RESTORE_ID \
+  --bundle-id REVIEWED_PUBLIC_BUNDLE_ID \
+  --manifest-sha256 REVIEWED_PUBLIC_MANIFEST_SHA256 \
+  --input-receipt /PRIVATE/input-receipt.json \
+  --input-receipt-sha256 REVIEWED_INPUT_RECEIPT_SHA256 \
+  --transport /PRIVATE/snapshot.transport.age \
+  --transport-key /PRIVATE/transport.key
+```
+
+Preparation rejects unsafe/duplicate archive members, excessive expansion, missing original state, wrong namespace/revision, conflicting image tags and inadequate disk headroom. It restores only to empty managed volumes using exact images and network-disabled volume-copy helpers. It preserves private modes and known service ownership. PostgreSQL restores into the newly initialized database; Synapse's same-source config helper regenerates config from original secrets, and its existing bootstrap verifies the restored token. Gateway, Echo and all schedules remain stopped. No Echo-bootstrap entrypoint runs.
+
+The durable record is `/var/lib/zavliq/deployments/restore-RESTORE_ID/restore.json`. A successful preparation records `restored_private`, retains an `activating` active marker and installs the existing pinned maintenance wrapper/units without enabling schedules. A failure after mutation records failure and attempts to stop writers independently of marker-write success; it never deletes volumes, downgrades images, clears evidence or retries a failed target automatically. A new attempt requires separate recovery review, including any leftover plaintext after abrupt interruption.
+
+### Bring up the gateway and restored Echo for verification
+
+The snapshot does **not** include Caddy certificates or ACME account state. There is no automatic verified pre-cutover HTTPS route. First perform private core/metadata checks, then explicitly review source fencing, target ingress restrictions, canonical A/AAAA routing and certificate acquisition. Do not expose the gateway during isolated core restoration.
+
+One possible maintenance cutover is to fence all old writers/Echo, restrict replacement TCP 443 to verification operators and keep UDP 443 closed, point the canonical domain to the replacement, and permit TCP 80 for Caddy's HTTP-01 challenge/HTTPS redirect. Verify the external firewall rules before starting the gateway. That sequence requires separately authorized DNS/firewall changes and successful real ACME issuance. Public TCP/UDP 443 stays restricted until verification/adoption. Full trusted-client verification before changing DNS instead requires an independently supplied valid certificate and canonical-host routing procedure; neither is implemented here. Never bypass certificate validation or rewrite the original client's homeserver URL.
+
+After those prerequisites, use the installed exact-pin route; do not use generic `compose.sh`, ordinary activation or Echo bootstrap:
+
+```sh
+sudo bash /etc/zavliq/production-compose.sh \
+  up -d --no-build --no-deps --wait --wait-timeout 180 gateway
+
+# Only after old Echo is stopped and this host's canonical HTTPS route reaches
+# the replacement, including narrowly reviewed firewall access for the responder:
+sudo bash /etc/zavliq/production-compose.sh --profile echo \
+  up -d --no-build --no-deps --wait --wait-timeout 180 echo
+sudo bash /etc/zavliq/production-compose.sh --profile echo ps
+```
+
+The wrapper always merges the exact image-ID overlay last with `pull_policy: never`; it disallows an added `--pull` argument. No new generic recovery Compose API is introduced. Close original verification devices on the old network before using their unchanged private stores against the canonical replacement. Verify retained E2EE text/JSON/file, new E2EE roundtrip, standard messaging/file, seeded membership/policy/quota state, restored Echo identity continuity and a controlled reply. Keep unseeded checks explicitly unverified. The same live crypto identity must never run simultaneously against the old and restored networks.
+
+### Complete adoption
+
+Hash the successful private restore record and make a separate root-owned `0600` verification receipt. It must use schema `zavliq.production-restore-verification.v1`, the exact `restore_id`, `restore_record_sha256`, `target_machine_id`, `manifest_sha256`, and `origin=https://zavliq.com`. Set integer Unix-second `verified_at` after preparation and `expires_at` at most one hour later. Its `operator_attestations` object requires each of these independently reviewed statements to be `true`:
+
+- `source_writers_and_echo_fenced`, `canonical_route_to_replacement`, `public_https_restricted_to_verifiers`, `dns_tls_decisions_reviewed`
+- `original_devices_used_without_origin_or_key_changes`, `old_e2ee_text_json_file_verified`, `new_e2ee_roundtrip_verified`, `standard_message_and_file_verified`
+- `memberships_policy_quotas_verified`, `restored_echo_identity_and_reply_verified`, `no_identity_or_secret_regeneration`, `replacement_monitor_backup_access_reviewed`
+
+Do not set a statement true to bypass a missing test. Store supporting sanitized evidence separately; no message bodies, credential values or private client/key file hashes belong in these receipts.
+
+```sh
+sudo python3 /opt/zavliq/production-tools/restore.py complete \
+  --restore-id REVIEWED_LOWERCASE_RESTORE_ID \
+  --expected-restore-record-sha256 REVIEWED_PRIVATE_RESTORE_RECORD_SHA256 \
+  --verification-receipt /PRIVATE/verification.json \
+  --verification-receipt-sha256 REVIEWED_VERIFICATION_RECEIPT_SHA256
+```
+
+Completion validates the current receipt/phase, re-verifies the complete public bundle and Compose configuration, checks actual running image IDs/health including Echo, checks certificate-verified canonical HTTPS/discovery/security headers, and takes a new encrypted backup using the production wrapper. Only then does it mark the restored deployment ready and enable existing health/backup/retention schedules. Actual local checks and external operator attestations are reported separately. It does not claim off-host upload succeeded or open public traffic. A failed completion stops writers/schedules and preserves failed state for review; it never restarts an older database image.
+
+Before opening public traffic, independently verify backup transfer, monitor/alert delivery and replacement-host IAM/SSH/static-IP references, then remove temporary access/material. DNS caches, stale AAAA routing and certificate issuance/rate limits can dominate downtime; keep the old writers fenced. Record RPO and end-to-end RTO, including those delays. The private localhost tunnel drill did not establish public DNS/TLS recovery timing. Reverting DNS to the old database after new writes is not a safe rollback.
+
+Focused tests use real local tar archives/private file lifecycles and mocked age, Docker, systemd and HTTPS:
+
+```sh
+python3 -W error::ResourceWarning -m unittest discover \
+  -s infra/production/tests -p test_restore.py -v
+```
+
+No live replacement host, Docker daemon, cloud service, account, fixture or client store is exercised by that suite.

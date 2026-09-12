@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Explicit production activation for reviewed public bundles; no build or cloud access."""
 import argparse
+import datetime as dt
 import fcntl
 import hashlib
 import json
@@ -39,6 +40,7 @@ class Paths:
         self.evidence = root / 'var/lib/zavliq/deployments'
         self.systemd = root / 'etc/systemd/system'
         self.backups = root / 'var/backups/zavliq'
+        self.health = root / 'var/lib/zavliq/health.json'
 
 
 def private_file(path):
@@ -104,6 +106,7 @@ def atomic_write(path, data, mode=0o600):
     try:
         fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
         with os.fdopen(fd, 'w') as stream:
+            os.fchmod(stream.fileno(), mode)
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
@@ -331,13 +334,23 @@ def require_images(manifest):
             raise ValueError('LOADED_EXACT_AMD64_IMAGES_REQUIRED')
 
 
-def require_running(paths, release, manifest):
+def remaining_timeout(deadline, maximum=5):
+    if deadline is None:
+        return maximum
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError('HEALTH_DEADLINE')
+    return min(maximum, remaining)
+
+
+def require_running(paths, release, manifest, deadline=None):
     for name, image in manifest['images'].items():
-        ids = run_compose(paths, release, '--profile', 'echo', 'ps', '--quiet', name).stdout.split()
+        ids = run_compose(paths, release, '--profile', 'echo', 'ps', '--quiet', name, timeout=remaining_timeout(deadline, 30)).stdout.split()
         if len(ids) != 1:
             raise ValueError('ONE_RUNNING_CONTAINER_PER_SERVICE_REQUIRED')
-        value = command(['docker', 'inspect', '--format', '{{.Image}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}', ids[0]]).stdout.strip().split('|')
-        if len(value) != 3 or value[0] != image['id'] or value[1] != 'true' or value[2] not in {'', 'healthy'}:
+        value = command(['docker', 'inspect', '--format', '{{.Image}}|{{.State.Running}}|{{.State.Paused}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}', ids[0]], timeout=remaining_timeout(deadline, 30)).stdout.strip().split('|')
+        allowed_health = {'', 'healthy'} if name == 'gateway' else {'healthy'}
+        if len(value) != 4 or value[0] != image['id'] or value[1:3] != ['true', 'false'] or value[3] not in allowed_health:
             raise ValueError('RUNNING_IMAGE_OR_HEALTH_MISMATCH')
 
 
@@ -346,11 +359,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise ValueError('PUBLIC_HTTPS_REDIRECT_REFUSED')
 
 
-def public_readiness():
+def public_readiness(deadline=None):
     opener = urllib.request.build_opener(NoRedirect())
     reports = {}
     for path in ['/health', '/_matrix/client/versions', '/.well-known/matrix/client', '/.well-known/zavliq', '/']:
-        with opener.open(bundle.ORIGIN + path, timeout=5) as response:
+        with opener.open(bundle.ORIGIN + path, timeout=remaining_timeout(deadline)) as response:
             if response.status != 200 or not response.headers.get('Strict-Transport-Security'):
                 raise ValueError('PUBLIC_HTTPS_HEALTH_REQUIRED')
             if path == '/':
@@ -369,6 +382,70 @@ def public_readiness():
         raise ValueError('CANONICAL_PUBLIC_DISCOVERY_REQUIRED')
 
 
+class HealthDeadline(TimeoutError):
+    pass
+
+
+def run_health(paths, timeout=35):
+    """Publish content-free readiness within the health service's 45-second limit."""
+    deadline = time.monotonic() + timeout
+    checks = []
+
+    def running():
+        record, release, manifest = runtime_record(paths)
+        if record['status'] != 'ready' or set(manifest['images']) != bundle.SERVICES:
+            raise ValueError('READY_PRODUCTION_WITH_ALL_SERVICES_REQUIRED')
+        require_running(paths, release, manifest, deadline=deadline)
+
+    def disk():
+        usage = shutil.disk_usage(paths.releases)
+        if usage.total <= 0 or usage.used / usage.total >= 0.8:
+            raise ValueError('DISK_HEADROOM_REQUIRED')
+
+    def backup():
+        marker = paths.backups / 'last-success'
+        private_file(marker)
+        if marker.stat().st_size > 32:
+            raise ValueError('BOUNDED_BACKUP_SUCCESS_RECORD_REQUIRED')
+        stamp = marker.read_text().strip()
+        created = dt.datetime.strptime(stamp, '%Y%m%dT%H%M%SZ').replace(tzinfo=dt.timezone.utc).timestamp()
+        if not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z', stamp) or not -60 <= time.time() - created <= 86400:
+            raise ValueError('FRESH_KNOWN_BACKUP_REQUIRED')
+        archive = paths.backups / ('zavliq-' + stamp + '.tar.age')
+        checksum = archive.with_name(archive.name + '.sha256')
+        for item in [archive, checksum]:
+            private_file(item)
+        if archive.stat().st_size <= 100 or checksum.stat().st_size > 4096:
+            raise ValueError('COMPLETE_ENCRYPTED_BACKUP_REQUIRED')
+        if not re.fullmatch(r'[0-9a-f]{64}  ' + re.escape(str(archive)) + r'\n?', checksum.read_text()):
+            raise ValueError('EXACT_BACKUP_CHECKSUM_RECORD_REQUIRED')
+
+    def expired(*_):
+        raise HealthDeadline('HEALTH_DEADLINE')
+
+    previous_handler = signal.signal(signal.SIGALRM, expired)
+    signal.setitimer(signal.ITIMER_REAL, timeout)
+    try:
+        for name, check in [('running_images', running), ('public_https', lambda: public_readiness(deadline)),
+                            ('disk', disk), ('backup_age', backup)]:
+            try:
+                remaining_timeout(deadline)
+                check()
+                checks.append({'check': name, 'ok': True})
+            except HealthDeadline:
+                checks.append({'check': name, 'ok': False, 'error': 'HEALTH_DEADLINE'})
+                break
+            except Exception as error:
+                code = str(error) if isinstance(error, ValueError) and re.fullmatch(r'[A-Z0-9_]+', str(error)) else type(error).__name__
+                checks.append({'check': name, 'ok': False, 'error': code})
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+    report = {'ok': len(checks) == 4 and all(check['ok'] for check in checks), 'checked_at': int(time.time()), 'checks': checks}
+    atomic_write(paths.health, json.dumps(report, separators=(',', ':')) + '\n', mode=0o644)
+    return report
+
+
 def install_operations(paths, release):
     wrapper = '#!/usr/bin/env bash\nset -euo pipefail\nexec /usr/bin/python3 ' + shlex.quote(str(TOOLS / 'activate.py')) + ' compose -- "$@"\n'
     atomic_write(paths.wrapper, wrapper, mode=0o700)
@@ -376,10 +453,23 @@ def install_operations(paths, release):
         for kind in ['service', 'timer']:
             filename = 'zavliq-' + name + '.' + kind
             atomic_write(paths.systemd / filename, (release / 'infra/systemd' / filename).read_text(), mode=0o644)
-    for name in ['backup', 'retention']:
+    for name in ['backup', 'retention', 'health']:
         dropin = '[Service]\nExecStart=\nExecStart=/usr/bin/python3 ' + str(TOOLS / 'activate.py') + ' ' + name + '\n'
         atomic_write(paths.systemd / ('zavliq-' + name + '.service.d') / 'production-pins.conf', dropin, mode=0o644)
     command(['systemctl', 'daemon-reload'])
+
+
+def stop_operations(report):
+    # A timer may already have triggered a oneshot service. Fence both, and keep
+    # failed deployments from re-enabling maintenance automatically after reboot.
+    for timer in TIMERS:
+        try: command(['systemctl', 'disable', timer])
+        except Exception: report['timer_disable_incomplete'] = True
+        try: command(['systemctl', 'stop', timer])
+        except Exception: report['timer_stop_incomplete'] = True
+    for service in [timer.replace('.timer', '.service') for timer in TIMERS]:
+        try: command(['systemctl', 'stop', service], timeout=90)
+        except Exception: report['maintenance_stop_incomplete'] = True
 
 
 def activate(paths, bundle_id, expected_hash, expected_current):
@@ -467,9 +557,7 @@ def activate(paths, bundle_id, expected_hash, expected_current):
             try: write_json(paths.active, active)
             except Exception: report['marker_write_incomplete'] = True
             report['operator_recovery_required'] = True
-            for timer in TIMERS:
-                try: command(['systemctl', 'stop', timer])
-                except Exception: report['timer_stop_incomplete'] = True
+            stop_operations(report)
             try:
                 run_compose(paths, release, '--profile', 'echo', 'stop', '--timeout', '30', 'echo', 'gateway', 'control', 'synapse', 'postgres', timeout=165)
             except Exception:
@@ -493,6 +581,7 @@ def main():
     deploy.add_argument('--expected-current-manifest-sha256', required=True)
     commands.add_parser('backup')
     commands.add_parser('retention')
+    commands.add_parser('health')
     compose = commands.add_parser('compose')
     compose.add_argument('arguments', nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -511,6 +600,8 @@ def main():
                 result = activate(paths, args.bundle_id, args.manifest_sha256, args.expected_current_manifest_sha256)
         elif args.action == 'backup':
             result = run_backup(paths)
+        elif args.action == 'health':
+            result = run_health(paths)
         else:
             _, release, _ = runtime_record(paths)
             arguments = ['--profile', 'maintenance', 'run', '--rm', '--no-deps', '-T', 'retention'] if args.action == 'retention' else args.arguments
@@ -523,6 +614,8 @@ def main():
             run_compose(paths, release, *arguments, timeout=240, passthrough=True)
             return
         print(json.dumps(result))
+        if result.get('ok') is False:
+            raise SystemExit(1)
     except Exception as error:
         code = str(error) if isinstance(error, ValueError) and re.fullmatch(r'[A-Z0-9_]+', str(error)) else type(error).__name__
         print(json.dumps({'operation': args.action, 'ok': False, 'error': code}))

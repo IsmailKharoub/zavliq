@@ -82,7 +82,7 @@ class HostRig:
             stdout = json.dumps({'Id': args[-1], 'Os': 'linux', 'Architecture': 'amd64'})
         elif args[:2] == ['docker', 'inspect']:
             service = args[-1].removesuffix('-container')
-            stdout = self.latest['images'][service]['id'] + '|true|healthy'
+            stdout = self.latest['images'][service]['id'] + '|true|false|healthy'
         elif args[:2] == ['docker', 'load']:
             pass
         elif args[0] == 'docker':
@@ -173,7 +173,7 @@ class ActivationTests(unittest.TestCase):
         commands = [args for args, _ in self.rig.calls]
         self.assertFalse(any('pull' in args or 'build' in args or 'down' in args for args in commands))
         self.assertTrue(any('echo-bootstrap' in args for args in commands))
-        for name in ['backup', 'retention']:
+        for name in ['backup', 'retention', 'health']:
             dropin = (self.paths.systemd / ('zavliq-' + name + '.service.d/production-pins.conf')).read_text()
             self.assertIn('/opt/zavliq/production-tools/activate.py ' + name, dropin)
         self.assertIn('compose -- "$@"', self.paths.wrapper.read_text())
@@ -246,6 +246,25 @@ class ActivationTests(unittest.TestCase):
         for timer in activate.TIMERS: self.assertIn(['systemctl', 'stop', timer], commands)
         self.assertTrue(self.reports()[0]['marker_write_incomplete'])
         self.assertFalse(any('up' in args for args in commands))
+
+    def test_schedule_activation_failure_disables_timers_and_stops_triggered_services_before_writers(self):
+        original = self.rig.run
+
+        def fail_enable(args, **kwargs):
+            result = original(args, **kwargs)
+            if args[:3] == ['systemctl', 'enable', '--now']:
+                raise RuntimeError('schedule activation outcome unknown')
+            return result
+
+        with patch.object(activate, 'command', side_effect=fail_enable), self.assertRaises(RuntimeError):
+            self.deploy()
+        self.assertEqual(json.loads(self.paths.active.read_text())['status'], 'failed')
+        commands = [args for args, _ in self.rig.calls]
+        writer_stop = next(index for index, args in enumerate(commands) if 'stop' in args and 'postgres' in args)
+        for timer in activate.TIMERS:
+            self.assertIn(['systemctl', 'disable', timer], commands)
+            service_stop = ['systemctl', 'stop', timer.replace('.timer', '.service')]
+            self.assertLess(commands.index(service_stop), writer_stop)
 
     def test_startup_after_possible_migration_failure_never_downgrades_or_deletes_volumes(self):
         self.deploy()
