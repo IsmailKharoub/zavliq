@@ -1,0 +1,129 @@
+# Manual identity verification only; deployment and backup templates remain inactive.
+name: Verify production OIDC identity
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: production-host-access
+  cancel-in-progress: false
+jobs:
+  preflight:
+    if: github.repository == 'IsmailKharoub/zavliq' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 5
+    # Metadata secrets are masked before step inputs/environment are logged.
+    # No AWS access keys are stored in GitHub; authentication must use OIDC.
+    env:
+      EXPECTED_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+      INSTANCE: ${{ secrets.LIGHTSAIL_INSTANCE }}
+      INSTANCE_ARN: ${{ secrets.LIGHTSAIL_INSTANCE_ARN }}
+      DEPLOY_ROLE: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+    steps:
+      - name: Validate protected identity metadata
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          python3 -I -B - <<'PY'
+          import json, os, re
+
+          def validate(values):
+              account = values.get('EXPECTED_ACCOUNT', '')
+              name = values.get('INSTANCE', '')
+              arn = values.get('INSTANCE_ARN', '')
+              role = values.get('DEPLOY_ROLE', '')
+              if not re.fullmatch(r'[0-9]{12}', account):
+                  raise ValueError('account')
+              if len(name) > 63 or not re.fullmatch(
+                      r'zavliq-production(?:-recovery-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?', name):
+                  raise ValueError('name')
+              if not re.fullmatch(r'arn:aws:lightsail:us-east-1:' + account
+                                  + r':Instance/[A-Za-z0-9_-]{1,128}', arn):
+                  raise ValueError('instance')
+              if role != 'arn:aws:iam::' + account + ':role/zavliq-production-github':
+                  raise ValueError('role')
+              for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'):
+                  if not re.fullmatch(r'[0-9]{1,20}', values.get(key, '')):
+                      raise ValueError('run')
+              if not values.get('ACTIONS_ID_TOKEN_REQUEST_URL') or not values.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN'):
+                  raise ValueError('oidc')
+
+          try:
+              validate(os.environ)
+          except Exception:
+              print(json.dumps({'ok': False, 'code': 'PREFLIGHT_INPUTS_INVALID'}))
+              raise SystemExit(1)
+          print(json.dumps({'protected_inputs_valid': True}))
+          PY
+      - name: Assume the restricted verification session
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        timeout-minutes: 2
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+          allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID }}
+          role-session-name: zavliq-oidc-${{ github.run_id }}-${{ github.run_attempt }}
+          role-duration-seconds: 900
+          mask-aws-account-id: true
+          unset-current-credentials: true
+          use-existing-credentials: false
+          force-skip-oidc: false
+          output-credentials: false
+          output-env-credentials: true
+          disable-retry: true
+          action-timeout-s: 90
+          inline-session-policy: >-
+            {"Version":"2012-10-17","Statement":[
+            {"Effect":"Allow","Action":"sts:GetCallerIdentity","Resource":"*"},
+            {"Effect":"Allow","Action":"lightsail:GetInstance",
+            "Resource":"${{ secrets.LIGHTSAIL_INSTANCE_ARN }}",
+            "Condition":{"StringEquals":{"aws:RequestedRegion":"us-east-1"}}}]}
+      - name: Verify the exact account, role and active instance
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          python3 -I -B - <<'PY'
+          import datetime, json, os, subprocess, time
+
+          deadline = time.monotonic() + 40
+
+          def aws(arguments):
+              remaining = deadline - time.monotonic()
+              if remaining <= 0:
+                  raise TimeoutError()
+              result = subprocess.run(
+                  ['aws', *arguments, '--region', 'us-east-1', '--output', 'json',
+                   '--cli-connect-timeout', '5', '--cli-read-timeout', '10', '--no-cli-pager'],
+                  capture_output=True, text=True, timeout=min(15, remaining),
+                  env={**os.environ, 'AWS_MAX_ATTEMPTS': '1', 'AWS_PAGER': '',
+                       'AWS_EC2_METADATA_DISABLED': 'true'})
+              if result.returncode or len(result.stdout) > 65536:
+                  raise ValueError('response')
+              return json.loads(result.stdout)
+
+          try:
+              account = os.environ['EXPECTED_ACCOUNT']
+              session = 'zavliq-oidc-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
+              identity = aws(['sts', 'get-caller-identity'])
+              if (identity.get('Account') != account or identity.get('Arn') !=
+                      'arn:aws:sts::' + account + ':assumed-role/zavliq-production-github/' + session):
+                  raise ValueError('identity')
+              instance = aws(['lightsail', 'get-instance', '--instance-name', os.environ['INSTANCE']])['instance']
+              if (instance.get('name') != os.environ['INSTANCE'] or
+                      instance.get('arn') != os.environ['INSTANCE_ARN'] or
+                      instance.get('location', {}).get('regionName') != 'us-east-1' or
+                      instance.get('state', {}).get('name') != 'running'):
+                  raise ValueError('instance')
+          except Exception:
+              # Neither AWS responses nor exception details belong in public logs.
+              print(json.dumps({'ok': False, 'code': 'PREFLIGHT_IDENTITY_CHECK_FAILED'}))
+              raise SystemExit(1)
+          print(json.dumps({
+              'ok': True, 'checked_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'account_matches': True, 'role_session_matches': True,
+              'instance_name_and_arn_match': True, 'instance_region_matches': True,
+              'instance_running': True, 'deployment_or_backup_verified': False}))
+          PY
