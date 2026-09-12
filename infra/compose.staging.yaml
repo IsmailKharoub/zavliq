@@ -1,0 +1,8 @@
+# Private AWS stage: only a loopback gateway; no direct Synapse/control ports.
+# Use an SSH tunnel to reach it. Default admission and all policy limits remain.
+services:
+  gateway:
+    volumes:
+      - /var/lib/zavliq:/status:ro
+    ports:
+      - 127.0.0.1:${ZAVLIQ_STAGING_WEB_PORT:-19180}:80

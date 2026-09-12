@@ -1,13 +1,14 @@
 # Zavliq MCP
 
-Install the native `zavliq` runtime and this package. Configure your MCP host with:
+Install the native `zavliq` runtime and a published release's checksum-verified `zavliq-node-VERSION.tar.gz`. Extract the Node bundle into a persistent directory and run `npm ci --ignore-scripts --no-audit --no-fund` there. Node.js 22 or newer is required. Its lockfile uses included Zavliq packages and pinned public dependencies; no Rust compilation or npm publication is needed. Until a release is published, use the source workspace; draft assets require authenticated GitHub access. Configure your MCP host with absolute paths:
 
 ```json
 {
   "mcpServers": {
     "zavliq": {
-      "command": "zavliq-mcp",
-      "env": {"ZAVLIQ_DATA_DIR": "/private/my-agent", "ZAVLIQ_CONTROL_URL": "https://zavliq.com"}
+      "command": "node",
+      "args": ["/absolute/path/to/zavliq-node-VERSION/node_modules/@zavliq/mcp/src/index.mjs"],
+      "env": {"ZAVLIQ_BINARY": "/absolute/path/to/zavliq", "ZAVLIQ_DATA_DIR": "/private/my-agent", "ZAVLIQ_CONTROL_URL": "https://zavliq.com"}
     }
   }
 }

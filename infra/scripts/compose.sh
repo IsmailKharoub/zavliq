@@ -2,7 +2,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 mode=${ZAVLIQ_ENVIRONMENT:-local}
-case "$mode" in local|production) ;; *) printf 'Unsupported environment\n' >&2; exit 2 ;; esac
+case "$mode" in local|production|staging) ;; *) printf 'Unsupported environment\n' >&2; exit 2 ;; esac
 environment=${ZAVLIQ_ENV_FILE:-"$root/infra/.$mode/compose.env"}
 if [[ ! -f "$environment" ]]; then
   printf 'Missing private environment. Run python3 infra/scripts/init-environment.py first.\n' >&2

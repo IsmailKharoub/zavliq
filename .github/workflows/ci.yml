@@ -41,9 +41,12 @@ jobs:
         run: |
           python -m pip install --no-deps ./services/echo
           python -m unittest discover -s services/echo/tests
+          ZAVLIQ_TEST_BINARY=crates/zavliq-runtime/target/debug/zavliq node --test services/echo/tests/bootstrap.test.mjs
           python -m unittest discover -s tests/onboarding
           python -m unittest discover -s tests/load
+          python -m unittest discover -s infra/tests
           python packages/installer/test_installer.py
+          python packages/installer/test_package_release.py
       - name: Synapse policy
         run: |
           python -m pip install 'matrix-synapse==1.160.0' ./services/synapse-policy

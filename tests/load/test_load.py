@@ -1,9 +1,10 @@
+import asyncio
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-from run import evaluate, metric, target_config
+from run import ReceiverStopped, check_receivers, evaluate, metric, target_config
 
 
 class LoadValidation(unittest.TestCase):
@@ -28,6 +29,27 @@ class LoadValidation(unittest.TestCase):
         measured = metric([.1] * 94 + [2.5] * 6)
         self.assertEqual(measured['p95_seconds'], 2.5)
         self.assertIsNone(metric([])['p95_seconds'])
+
+
+class ReceiverValidation(unittest.IsolatedAsyncioTestCase):
+    async def test_unexpected_receiver_failure_aborts_with_sanitized_metadata(self):
+        async def broken():
+            raise KeyError('private payload must not reach evidence')
+        task = asyncio.create_task(broken())
+        await asyncio.sleep(0)
+        with self.assertRaises(ReceiverStopped) as failure:
+            check_receivers([task])
+        self.assertEqual(failure.exception.receiver_index, 0)
+        self.assertEqual(failure.exception.reason, 'KeyError')
+        self.assertNotIn('private payload', str(failure.exception))
+
+    async def test_running_receiver_is_allowed_and_cancelled_one_is_not(self):
+        task = asyncio.create_task(asyncio.sleep(10))
+        check_receivers([task])
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        with self.assertRaises(ReceiverStopped):
+            check_receivers([task])
 
 
 if __name__ == '__main__':

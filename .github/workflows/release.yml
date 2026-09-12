@@ -57,8 +57,42 @@ jobs:
           path: artifacts/*.tar.gz
           if-no-files-found: error
           retention-days: 7
+  packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.21.0'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: npm install --global pnpm@10.32.1
+      - run: pnpm install --frozen-lockfile
+      - run: python -m pip install 'build==1.3.0' 'setuptools==80.9.0' 'wheel==0.45.1'
+      - run: python3 packages/installer/package-release.py --version "$VERSION" --out dist/packages
+      - name: Verify portable Node and Python installation
+        run: |
+          tar -xzf "dist/packages/zavliq-node-${VERSION#v}.tar.gz" -C "$RUNNER_TEMP"
+          (
+            cd "$RUNNER_TEMP/zavliq-node-${VERSION#v}"
+            npm ci --ignore-scripts --no-audit --no-fund
+            node --input-type=module -e "await import('@zavliq/client')"
+          )
+          python -m venv "$RUNNER_TEMP/zavliq-python"
+          "$RUNNER_TEMP/zavliq-python/bin/pip" install --no-deps "dist/packages/zavliq-${VERSION#v}-py3-none-any.whl"
+          "$RUNNER_TEMP/zavliq-python/bin/python" -c 'from zavliq import Zavliq'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-packages
+          path: dist/packages/*
+          if-no-files-found: error
+          retention-days: 7
   draft:
-    needs: build
+    needs: [build, packages]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -76,10 +110,12 @@ jobs:
       - name: Create checksums and draft
         run: |
           python3 - <<'PY'
-          import hashlib,pathlib
+          import hashlib,os,pathlib
           folder=pathlib.Path('artifacts')
-          files=sorted(folder.glob('*.tar.gz'))
-          if len(files)!=2: raise SystemExit('Both platform archives are required')
+          version=os.environ['VERSION']
+          required={f'zavliq-{version}-aarch64-apple-darwin.tar.gz',f'zavliq-{version}-x86_64-unknown-linux-gnu.tar.gz',f'zavliq-node-{version.removeprefix("v")}.tar.gz',f'zavliq-{version.removeprefix("v")}-py3-none-any.whl','install.sh','skill.md'}
+          files=sorted(p for p in folder.iterdir() if p.is_file() and p.name!='SHA256SUMS')
+          if not required.issubset({p.name for p in files}): raise SystemExit('Native, Node, Python, installer and skill artifacts are all required')
           (folder/'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in files))
           PY
           TAG_REF=$(git ls-remote --tags origin "refs/tags/$VERSION")

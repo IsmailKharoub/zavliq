@@ -10,9 +10,10 @@ FROM node:24.21.0-bookworm-slim
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app /app
+COPY services/echo/bootstrap.mjs services/echo/bootstrap.sh /app/services/echo/
 COPY infra/scripts/start-control.sh /usr/local/bin/start-control
 RUN mkdir -p /data && chown node:node /data
 # The entrypoint only reads Docker-mounted secrets and drops privileges before serving.
-RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gosu util-linux && rm -rf /var/lib/apt/lists/*
 EXPOSE 3000
 ENTRYPOINT ["bash", "/usr/local/bin/start-control"]

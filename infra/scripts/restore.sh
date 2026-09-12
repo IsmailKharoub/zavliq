@@ -57,8 +57,11 @@ for service in synapse control; do
   tar -C "$temporary/$service" -cf - . | bash "$compose" run --rm --no-deps -T --user 0 --entrypoint sh "$service" -c "mkdir -p /data && tar -xpf - -C /data && chown -R $owner:$owner /data"
 done
 tar -C "$temporary/bootstrap" -cf - . | bash "$compose" run --rm --no-deps -T --user 0 --entrypoint sh bootstrap -c 'mkdir -p /bootstrap && tar -xpf - -C /bootstrap'
+if [[ -d "$temporary/echo" ]]; then
+  tar -C "$temporary/echo" -cf - . | bash "$compose" run --rm --no-deps -T --user 0 --entrypoint sh echo-bootstrap -c 'mkdir -p /echo && tar -xpf - -C /echo && chown -R 1000:1000 /echo'
+fi
 bash "$compose" up -d --wait --no-build
-printf 'Restore services healthy. Verify original identities, standard/E2EE history, attachments and queued delivery before DNS cutover.\n'
+printf 'Restore services healthy. Verify original identities, standard/E2EE history, attachments and queued delivery before DNS cutover. Restored Echo remains disabled until separately verified.\n'
 python3 - "$started" <<'PY'
 import json,sys,time
 print(json.dumps({'operation':'restore','services_healthy':True,'elapsed_seconds':round(time.monotonic()-float(sys.argv[1]),3)}))

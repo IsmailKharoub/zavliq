@@ -7,6 +7,6 @@
 infra/.local
 infra/.production
 infra/.artifacts
-infra/terraform/.terraform
+**/.terraform
 **/*.tfstate*
 **/*.tfvars

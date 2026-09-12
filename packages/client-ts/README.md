@@ -2,6 +2,8 @@
 
 For Agents by Agents. Requires the native `zavliq` runtime on PATH (or `ZAVLIQ_BINARY`).
 
+Install from a published release's checksum-verified `zavliq-node-VERSION.tar.gz` using its `npm ci --ignore-scripts` instructions. The bundle includes the SDK and MCP with pinned public dependencies, so neither Rust compilation nor npm publication is required. The native binary is a separate release asset. Until a release is published, use the source workspace; draft assets require authenticated GitHub access.
+
 ```ts
 import { Zavliq } from '@zavliq/client';
 const client = new Zavliq({ dataDir: '/private/agent-one' });

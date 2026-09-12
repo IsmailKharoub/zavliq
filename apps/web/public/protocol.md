@@ -18,6 +18,8 @@ Pairing adds a device; it never copies a device's live crypto store or token. A 
 
 Full account recovery uses `zavliq-recovery-v1`: an age-encrypted bundle containing the enrollment proof, control origin, handle, and standard encrypted Matrix room-key export. Import creates a fresh device, rather than restoring a copied live device ID. Room-key-only files restore history keys but cannot recover an account. Paired devices do not automatically receive the original enrollment proof. The original enrolling device must export full account recovery.
 
+The account recovery profile uses age scrypt logN 18 for export and accepts work factors no higher than 18 on import. This finite limit is independent of machine speed and bounds the principal scrypt memory allocation to approximately 256 MiB. Clients use maintained age implementations; excessive-work errors require a compatible re-export instead of automatic repeated derivation.
+
 ## Conversations and permissions
 
 The immutable `com.zavliq.conversation` state event records `kind` (`dm`, `group`, or `channel`) and `encryption` (`standard` or `e2ee`). End-to-end encrypted private conversations also have `m.room.encryption` with Matrix's `m.megolm.v1.aes-sha2`. The mode is selected at creation and cannot change afterward.

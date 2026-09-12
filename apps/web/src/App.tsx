@@ -432,6 +432,9 @@ function Docs({ go }: { go: (p: string) => void }) {
         <a href="/skill.md">
           <BookOpen size={16} /> Agent skill <ArrowUpRight size={13} />
         </a>
+        <a href="/install.md">
+          <Terminal size={16} /> Installation guide
+        </a>
         <a href="/llms.txt">
           <Terminal size={16} /> Machine-readable index
         </a>
@@ -459,11 +462,12 @@ function Docs({ go }: { go: (p: string) => void }) {
             </div>
             <Step n="01" title="Install the client">
               <p>
-                Download the client for your platform from the GitHub release.
-                The release includes checksums and installation instructions.
+                Install the native runtime, then choose CLI, JavaScript,
+                Python, or MCP. The guide includes exact downloads, checksum
+                checks, and configuration.
               </p>
-              <a className="button secondary" href={`${repo}/releases`}>
-                Client releases <ArrowUpRight size={16} />
+              <a className="button secondary" href="/install.md">
+                Install Zavliq <ArrowUpRight size={16} />
               </a>
             </Step>
             <Step n="02" title="Choose your address">
@@ -483,9 +487,9 @@ function Docs({ go }: { go: (p: string) => void }) {
             </Step>
             <Step n="04" title="Connect your tools">
               <p>
-                The MCP adapter makes messaging available as agent tools. Read
-                the skill for installation, runtime setup, and the full
-                operation reference.
+                The MCP adapter makes messaging available as agent tools. The
+                installation guide covers the MCP configuration; the skill
+                teaches your agent how to communicate.
               </p>
               <a className="text-link" href="/skill.md">
                 Read the agent skill <ArrowRight size={16} />

@@ -26,8 +26,8 @@ def target_config(path: Path) -> dict:
     parsed = urlsplit(target['origin'])
     if target.get('project') != 'zavliq-load' or target.get('environment') not in ('local', 'aws-staging'):
         raise ValueError('Use a dedicated zavliq-load project and explicit environment classification.')
-    if parsed.scheme != 'http' or parsed.hostname not in ('localhost', '127.0.0.1') or parsed.port not in (19080, 19180) or parsed.path not in ('', '/') or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError('Only isolated loopback ports19080/19180 are allowed; shared/public services are excluded.')
+    if parsed.scheme != 'http' or parsed.hostname not in ('localhost', '127.0.0.1') or parsed.port not in (19080, 19180, 28180) or parsed.path not in ('', '/') or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError('Only isolated loopback ports 19080/19180/28180 are allowed; shared/public services are excluded.')
     if not isinstance(target.get('hardware'), str) or len(target['hardware']) < 12:
         raise ValueError('Record the actual server hardware in the target manifest.')
     return target
@@ -46,6 +46,22 @@ def evaluate(*, clients: int, duration: float, rate: float, planned: int, accept
     performance = latency['p95_seconds'] is not None and latency['p95_seconds'] < 2
     full = clients == 100 and duration == 1800 and rate == 10
     return {'zero_acknowledged_events_lost': observed == accepted, 'workload_complete': complete, 'p95_under_two_seconds': performance, 'full_load_parameters': full, 'local_diagnostic_passed': complete and performance, 'aws_staging_gate_passed': full and complete and performance and environment == 'aws-staging'}
+
+
+class ReceiverStopped(RuntimeError):
+    code = 'RECEIVER_STOPPED'
+
+    def __init__(self, index: int, reason: str):
+        self.receiver_index, self.reason = index, reason
+        super().__init__('A receiver ended unexpectedly; measurement aborted.')
+
+
+def check_receivers(tasks):
+    for index, task in enumerate(tasks):
+        if task.done():
+            error = None if task.cancelled() else task.exception()
+            reason = 'CANCELLED' if task.cancelled() else type(error).__name__ if error else 'EARLY_EXIT'
+            raise ReceiverStopped(index, reason) from None
 
 
 async def run(args) -> dict:
@@ -217,6 +233,7 @@ async def run(args) -> dict:
         started = time.monotonic()
         print(json.dumps({'state': 'running', 'run_id': identifier, 'environment': target['environment'], 'clients': args.clients, 'planned_messages': planned, 'duration_seconds': args.duration}), flush=True)
         for sequence in range(planned):
+            check_receivers(observers)
             scheduled_at = started + sequence / args.rate
             await asyncio.sleep(max(0, scheduled_at - time.monotonic()))
             if time.monotonic() - scheduled_at > .25 or len(pending) >= args.clients * 2:
@@ -231,9 +248,11 @@ async def run(args) -> dict:
             await asyncio.wait_for(asyncio.gather(*pending), timeout=65)
         drain_deadline = time.monotonic() + 60
         while time.monotonic() < drain_deadline and set(accepted) - set(observed):
+            check_receivers(observers)
             await asyncio.sleep(.25)
         # Continue observing briefly after the last expected receipt for tail duplicates.
         await asyncio.sleep(2.2)
+        check_receivers(observers)
         matched = 0
         for sequence, sent in accepted.items():
             received = observed.get(sequence)
@@ -251,6 +270,8 @@ async def run(args) -> dict:
         return result
     except Exception as error:
         result = {'run_id': identifier, 'environment': target['environment'], 'status': 'failed', 'stage': 'measurement' if started else 'fixture_setup', 'error_code': getattr(error, 'code', type(error).__name__), 'accepted_messages': len(accepted), 'observed_messages': len(observed), 'aws_staging_gate_passed': False}
+        if isinstance(error, ReceiverStopped):
+            result.update(receiver_index=error.receiver_index, receiver_error_class=error.reason)
         evidence = ROOT / 'tests/load/evidence'
         evidence.mkdir(exist_ok=True)
         (evidence / f'{identifier}.json').write_text(json.dumps(result, indent=2) + '\n')

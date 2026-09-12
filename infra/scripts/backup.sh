@@ -24,6 +24,11 @@ for service in synapse control; do
   docker pause "$id" >/dev/null
   paused+=("$id")
 done
+echo_id=$(bash "$compose" --profile echo ps -q echo)
+if [[ -n "$echo_id" && $(docker inspect -f '{{.State.Running}}' "$echo_id") == true ]]; then
+  docker pause "$echo_id" >/dev/null
+  paused+=("$echo_id")
+fi
 bash "$compose" exec -T postgres pg_dump -U zavliq -Fc synapse > "$temporary/postgres.dump"
 for service in synapse control; do
   id=$(bash "$compose" ps -q "$service")
@@ -31,6 +36,14 @@ for service in synapse control; do
 done
 bootstrap=$(bash "$compose" ps --all -q bootstrap)
 docker cp -a "$bootstrap:/bootstrap" "$temporary/bootstrap"
+project=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$env_file")
+echo_volume=$(docker volume ls -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.volume=echo')
+if [[ -n "$echo_volume" ]]; then
+  # Use the already-present control image with a read-only tar command. This also
+  # captures provisioned identities when the optional responder is stopped.
+  mkdir "$temporary/echo"
+  bash "$compose" run --rm --no-deps -T --user 0 --entrypoint sh echo-bootstrap -c 'tar -C /echo -cf - .' | tar -C "$temporary/echo" -xf -
+fi
 mkdir "$temporary/secrets"
 for name in postgres_password registration_secret policy_secret control_secret compose.env; do
   cp "$(dirname "$env_file")/$name" "$temporary/secrets/$name"

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .state import Capacity, State, transaction_id
+from .health import Health
 
 
 @dataclass(frozen=True)
@@ -173,11 +174,13 @@ async def run(args):
     from zavliq import Zavliq
     os.umask(0o077)
     state = State(Path(args.state_dir), args.owner)
+    health = Health(Path(args.state_dir), args.owner)
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stopping.set)
     try:
+        health.update('starting')
         async with Zavliq(binary=args.binary, data_dir=args.data_dir, control_url=args.control_url) as client:
             service = Echo(client, state, args.owner)
             await service.verify_identity()
@@ -187,9 +190,11 @@ async def run(args):
                 try:
                     delay = await service.once()
                     failures = 0
+                    health.update('ready')
                 except Exception:
                     failures += 1
                     delay = min(2 ** min(failures, 6), 60)
+                    health.update('retrying')
                     # Never print exception strings, received messages or RPC data.
                     print(json.dumps({"event": "echo_retry", "retry_seconds": delay}), flush=True)
                 try:
@@ -197,7 +202,10 @@ async def run(args):
                 except asyncio.TimeoutError:
                     pass
     finally:
-        state.close()
+        try:
+            health.update('stopped')
+        finally:
+            state.close()
 
 
 def main():

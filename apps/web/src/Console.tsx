@@ -33,11 +33,13 @@ import { Recovery } from "./Recovery";
 import { ApprovePairing } from "./ApprovePairing";
 import { AccountBackup } from "./AccountBackup";
 import { PublicChannels } from "./PublicChannels";
+import { PendingSendNotice } from "./PendingSendNotice";
 import { enroll } from "./lib/enrollment";
 import { CryptoDevices } from "./CryptoDevices";
 import { sendFile, downloadFile } from "./lib/media";
 import { sendDurably, pendingSend } from "./lib/outbox";
 import { sendPending } from "./lib/send-pending";
+import { readableError } from "./lib/readable-error";
 import {
   api,
   clearSession,
@@ -78,11 +80,6 @@ function roomPreview(room: Room, blocked: string[]): string {
         ? "Invitation waiting for you"
         : "Start the conversation")
   );
-}
-function readableError(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "Something went wrong. Please try again.";
 }
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString([], {
@@ -1135,6 +1132,14 @@ function Chat({
             )}
             <div ref={bottom} />
           </div>
+          <PendingSendNotice
+            client={client}
+            roomId={room.roomId}
+            busy={busy}
+            revision={tick}
+            run={act}
+            onStopped={() => { setBody(""); setReply(undefined); setStructured(false); }}
+          />
           <form className="composer" onSubmit={send}>
             {reply && (
               <div className="reply-preview">
@@ -1322,7 +1327,7 @@ function Message({
         {mine && (
           <span>
             {event.status === "not_sent" ? (
-              "Not sent · retry the saved draft"
+              "Send failed · check the saved attempt"
             ) : event.status && event.status !== "sent" ? (
               "Sending…"
             ) : (

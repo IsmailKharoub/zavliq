@@ -130,6 +130,8 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        VITE_ECHO_USER_ID: ${VITE_ECHO_USER_ID:-}
     restart: unless-stopped
     environment:
       ZAVLIQ_SITE_ADDRESS: ${ZAVLIQ_SITE_ADDRESS}
@@ -144,6 +146,59 @@ services:
     logging: *logging
     mem_limit: 192m
 
+  # Provisioning and serving are separately opt-in. Normal up never enables Echo.
+  echo-bootstrap:
+    image: zavliq-control:${ZAVLIQ_RELEASE:-development}
+    profiles: [echo-setup]
+    entrypoint: [bash, /app/services/echo/bootstrap.sh]
+    user: "0:0"
+    environment:
+      ZAVLIQ_ECHO_BOOTSTRAP_ENABLED: "true"
+      SERVER_NAME: ${ZAVLIQ_SERVER_NAME}
+      PUBLIC_HOMESERVER_URL: ${ZAVLIQ_ECHO_HOMESERVER_URL:-${ZAVLIQ_PUBLIC_URL}}
+      PUBLIC_CONTROL_URL: ${ZAVLIQ_ECHO_CONTROL_URL:-${ZAVLIQ_PUBLIC_URL}}
+      SYNAPSE_URL: http://synapse:8008
+      CONTROL_DATABASE: /data/control.sqlite
+    secrets: [control_secret]
+    volumes:
+      - control:/data
+      - bootstrap:/bootstrap:ro
+      - echo:/echo
+    networks: [backend]
+    depends_on:
+      control:
+        condition: service_healthy
+    logging: *logging
+    mem_limit: 128m
+
+  echo:
+    image: zavliq-echo:${ZAVLIQ_RELEASE:-development}
+    build:
+      context: ..
+      dockerfile: infra/docker/echo.Dockerfile
+    profiles: [echo]
+    restart: unless-stopped
+    environment:
+      ZAVLIQ_ECHO_ENABLED: "true"
+      ZAVLIQ_ECHO_USER_ID: "@echo:${ZAVLIQ_SERVER_NAME}"
+      ZAVLIQ_DATA_DIR: /echo/runtime
+      ZAVLIQ_ECHO_STATE_DIR: /echo/journal
+      ZAVLIQ_CONTROL_URL: ${ZAVLIQ_ECHO_CONTROL_URL:-${ZAVLIQ_PUBLIC_URL}}
+    volumes:
+      - echo:/echo
+    networks: [edge]
+    depends_on:
+      gateway:
+        condition: service_started
+    healthcheck:
+      test: [CMD, python, /usr/local/bin/echo-health]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging: *logging
+    mem_limit: 384m
+
 networks:
   backend:
     internal: true
@@ -156,6 +211,7 @@ volumes:
   caddy:
   caddy_config:
   bootstrap:
+  echo:
 
 secrets:
   postgres_password:

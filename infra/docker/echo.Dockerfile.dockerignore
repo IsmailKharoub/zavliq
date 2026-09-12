@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/target
+**/__pycache__
+**/.local
+**/.private
+**/.terraform
+infra/.production
+infra/.artifacts
+**/*.tfstate*
+**/*.tfvars
