@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import runpy
 from pathlib import Path
 import tempfile
@@ -115,14 +116,21 @@ class ObjectService:
 
 
 class FetchBackup(unittest.TestCase):
-    def args(self, directory):
-        return SimpleNamespace(directory=Path(directory), ssh_config=Path(directory) / 'config', bucket='synthetic-backups')
+    def args(self, directory, **options):
+        return SimpleNamespace(directory=Path(directory), ssh_config=Path(directory) / 'config',
+                               bucket='synthetic-backups', **options)
 
-    def invoke(self, service, directory):
+    def invoke(self, service, directory, **options):
         output = io.StringIO()
         with patch.object(fetch.subprocess, 'run', side_effect=service.run), contextlib.redirect_stdout(output):
-            fetch.main(self.args(directory))
+            fetch.main(self.args(directory, **options))
         return json.loads(output.getvalue())
+
+    def pin(self, directory, manifest):
+        path = Path(directory) / 'expected.json'
+        path.write_text(json.dumps(manifest))
+        path.chmod(0o600)
+        return path
 
     def assert_failure(self, service, error, pattern=None):
         with tempfile.TemporaryDirectory() as directory:
@@ -177,6 +185,148 @@ class FetchBackup(unittest.TestCase):
         self.assertEqual(len(service.writes), 2)
         self.assertEqual(service.objects[service.key]['body'], service.payload)
         self.assertEqual(service.objects[service.key + '.sha256']['body'], service.sidecar)
+
+    def test_existing_only_requires_pin_before_any_remote_call(self):
+        service = ObjectService().existing()
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(fetch.BackupError, 'BACKUP_EXPECTED_MANIFEST_REQUIRED'):
+                self.invoke(service, directory, existing_only=True)
+        self.assertFalse(service.calls)
+
+    def test_invalid_private_pin_fails_before_any_remote_call(self):
+        for kind in ['missing', 'empty', 'oversized', 'invalid-json', 'invalid-manifest',
+                     'stale', 'public-mode', 'symlink', 'directory', 'fifo']:
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                service = ObjectService().existing()
+                path = self.pin(directory, service.manifest)
+                if kind == 'missing':
+                    path.unlink()
+                elif kind == 'empty':
+                    path.write_bytes(b'')
+                elif kind == 'oversized':
+                    path.write_bytes(b' ' * 4097)
+                elif kind == 'invalid-json':
+                    path.write_bytes(b'private malformed pin')
+                elif kind == 'invalid-manifest':
+                    path.write_text(json.dumps({**service.manifest, 'extra': 'private'}))
+                elif kind == 'stale':
+                    path.write_text(json.dumps({**service.manifest, 'name': 'zavliq-20000101T000000Z.tar.age'}))
+                elif kind == 'public-mode':
+                    path.chmod(0o640)
+                elif kind == 'symlink':
+                    target = path.with_name('target.json')
+                    path.rename(target)
+                    path.symlink_to(target)
+                elif kind == 'directory':
+                    path.unlink()
+                    path.mkdir()
+                elif kind == 'fifo':
+                    path.unlink()
+                    os.mkfifo(path, 0o600)
+                with self.assertRaisesRegex(fetch.BackupError, '^BACKUP_EXPECTED_MANIFEST_INVALID$'):
+                    self.invoke(service, directory, expected_manifest=path, existing_only=True)
+                self.assertFalse(service.calls)
+
+    def test_each_pin_field_mismatch_fails_before_aws_or_archive_download(self):
+        next_name = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=30)).strftime('zavliq-%Y%m%dT%H%M%SZ.tar.age')
+        for change in [{'name': next_name}, {'bytes': 999}, {'sha256': 'b' * 64}]:
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                service = ObjectService().existing()
+                path = self.pin(directory, service.manifest)
+                service.manifest.update(change)
+                with self.assertRaisesRegex(fetch.BackupError, '^BACKUP_EXPECTED_MANIFEST_MISMATCH$'):
+                    self.invoke(service, directory, expected_manifest=path, existing_only=True)
+                self.assertEqual(len(service.calls), 1)
+                self.assertEqual(service.calls[0][-1], 'sudo python3 -')
+
+    def test_pin_is_not_reloaded_to_accept_a_newer_latest_snapshot(self):
+        service = ObjectService().existing()
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.pin(directory, service.manifest)
+            def changed_latest(argv, **kwargs):
+                service.manifest['name'] = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=30)).strftime('zavliq-%Y%m%dT%H%M%SZ.tar.age')
+                path.write_text(json.dumps(service.manifest))
+                return service.run(argv, **kwargs)
+            with patch.object(fetch.subprocess, 'run', side_effect=changed_latest):
+                with self.assertRaisesRegex(fetch.BackupError, '^BACKUP_EXPECTED_MANIFEST_MISMATCH$'):
+                    fetch.main(self.args(directory, expected_manifest=path, existing_only=True))
+        self.assertEqual(len(service.calls), 1)
+
+    def test_existing_only_missing_objects_never_create_or_download(self):
+        for missing, code in [('archive', 'BACKUP_EXISTING_ARCHIVE_REQUIRED'),
+                              ('sidecar', 'BACKUP_EXISTING_SIDECAR_REQUIRED')]:
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
+                service = ObjectService().existing()
+                del service.objects[service.key + ('.sha256' if missing == 'sidecar' else '')]
+                path = self.pin(directory, service.manifest)
+                before = sorted(Path(directory).iterdir())
+                with self.assertRaisesRegex(fetch.BackupError, '^' + code + '$'):
+                    self.invoke(service, directory, expected_manifest=path, existing_only=True)
+                self.assertEqual(sorted(Path(directory).iterdir()), before)
+                self.assertFalse(service.writes)
+                self.assertFalse(service.downloads)
+
+    def test_existing_only_conflicting_or_disappearing_sidecar_never_falls_back_to_creation(self):
+        for disappears in [False, True]:
+            with self.subTest(disappears=disappears), tempfile.TemporaryDirectory() as directory:
+                service = ObjectService().existing()
+                path = self.pin(directory, service.manifest)
+                if not disappears:
+                    service.objects[service.key + '.sha256']['body'] = b'x' * len(service.sidecar)
+                def command(argv, **kwargs):
+                    if disappears and argv[:3] == ['aws', 's3api', 'get-object']:
+                        service.calls.append(argv)
+                        del service.objects[service.key + '.sha256']
+                        raise subprocess.CalledProcessError(1, 'aws', stderr=b'private vanished sidecar')
+                    return service.run(argv, **kwargs)
+                with patch.object(fetch.subprocess, 'run', side_effect=command):
+                    with self.assertRaises(subprocess.CalledProcessError if disappears else fetch.BackupError):
+                        fetch.main(self.args(directory, expected_manifest=path, existing_only=True))
+                self.assertFalse(service.writes)
+                self.assertFalse(service.downloads)
+                self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    def test_public_output_omits_snapshot_details_for_existing_and_new_objects(self):
+        allowed = {'status', 'local_ciphertext_sha256_verified', 's3_sha256_validated_on_create',
+                   'remote_metadata_matches', 'checksum_sidecar_readback_verified',
+                   'off_host_ciphertext_readback_verified'}
+        for existing in [False, True]:
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as directory:
+                service = ObjectService()
+                if existing:
+                    service.existing()
+                path = self.pin(directory, service.manifest)
+                result = self.invoke(service, directory, expected_manifest=path,
+                                     existing_only=existing, public_output=True)
+                self.assertEqual(set(result), allowed)
+                self.assertEqual(result['status'], 'already_present' if existing else 'uploaded')
+                self.assertEqual(result['local_ciphertext_sha256_verified'], not existing)
+                self.assertEqual(result['s3_sha256_validated_on_create'], not existing)
+                self.assertTrue(result['remote_metadata_matches'])
+                self.assertTrue(result['checksum_sidecar_readback_verified'])
+                self.assertFalse(result['off_host_ciphertext_readback_verified'])
+                for value in [service.name, service.digest, str(len(service.payload)), 'synthetic-backups']:
+                    self.assertNotIn(value, json.dumps(result))
+                self.assertEqual(len(service.downloads), 0 if existing else 1)
+                self.assertEqual(len(service.writes), 0 if existing else 2)
+
+    def test_cli_accepts_pinned_existing_only_public_check(self):
+        service = ObjectService().existing()
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.pin(directory, service.manifest)
+            arguments = [str(spec.origin), '--ssh-config', 'unused', '--bucket', 'synthetic-backups',
+                         '--directory', directory, '--expected-manifest', str(path),
+                         '--existing-only', '--public-output']
+            output, errors = io.StringIO(), io.StringIO()
+            with patch.object(subprocess, 'run', side_effect=service.run), patch.object(sys, 'argv', arguments), \
+                    contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                runpy.run_path(str(spec.origin), run_name='__main__')
+        self.assertEqual(errors.getvalue(), '')
+        self.assertEqual(json.loads(output.getvalue())['status'], 'already_present')
+        self.assertNotIn(service.name, output.getvalue())
+        self.assertNotIn(service.digest, output.getvalue())
+        self.assertFalse(service.writes)
+        self.assertFalse(service.downloads)
 
     def test_existing_archive_conflicts_never_download_or_overwrite(self):
         for change in [{'metadata': {'sha256': 'b' * 64}}, {'metadata': {}},
@@ -323,7 +473,8 @@ class FetchBackup(unittest.TestCase):
                     if oversized:
                         return service.run(argv, **kwargs)
                     raise subprocess.CalledProcessError(1, 'private command', output='private output', stderr='private credential marker')
-                arguments = [str(spec.origin), '--ssh-config', 'unused', '--bucket', 'synthetic', '--directory', directory]
+                arguments = [str(spec.origin), '--ssh-config', 'unused', '--bucket', 'synthetic',
+                             '--directory', directory, '--public-output']
                 output, errors = io.StringIO(), io.StringIO()
                 with patch.object(subprocess, 'run', side_effect=command), patch.object(sys, 'argv', arguments), \
                         contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
@@ -332,6 +483,7 @@ class FetchBackup(unittest.TestCase):
                 self.assertEqual(result.exception.code, 1)
                 self.assertNotIn('private', output.getvalue() + errors.getvalue())
                 self.assertEqual(errors.getvalue(), '')
+                self.assertEqual(set(json.loads(output.getvalue())), {'ok', 'code', 'error_class', 'action'})
                 self.assertEqual(json.loads(output.getvalue())['code'],
                                  'BACKUP_NEW_UPLOAD_EXCEEDS_SINGLE_PUT_LIMIT' if oversized else 'BACKUP_TRANSFER_FAILED')
 

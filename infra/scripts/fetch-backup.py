@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import time
@@ -74,6 +75,24 @@ def validate_manifest(value, now=None):
     if not -300 <= age <= 86400:
         raise ValueError('Latest backup is stale or its timestamp is in the future')
     return value
+
+
+def read_expected_manifest(path):
+    """Load one bounded private operator pin before contacting either service."""
+    try:
+        # NONBLOCK prevents a FIFO from hanging before the regular-file check.
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, 'rb') as stream:
+            details = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(details.st_mode) or details.st_uid != os.geteuid() or
+                    details.st_mode & 0o077 or not 1 <= details.st_size <= 4096):
+                raise ValueError('Invalid private manifest file')
+            raw = stream.read(4097)
+            if len(raw) > 4096:
+                raise ValueError('Manifest exceeds limit')
+            return validate_manifest(json.loads(raw))
+    except (OSError, ValueError, TypeError):
+        raise BackupError('BACKUP_EXPECTED_MANIFEST_INVALID') from None
 
 
 def object_metadata(bucket, key, deadline):
@@ -143,18 +162,29 @@ def matching_sidecar(bucket, key, expected, directory, deadline):
 def main(args, deadline=None):
     deadline = deadline or Deadline()
     os.umask(0o077)
+    expected_path = getattr(args, 'expected_manifest', None)
+    existing_only = getattr(args, 'existing_only', False)
+    if existing_only and expected_path is None:
+        raise BackupError('BACKUP_EXPECTED_MANIFEST_REQUIRED')
+    expected = read_expected_manifest(expected_path) if expected_path is not None else None
     directory = args.directory.resolve()
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     manifest = command(ssh_command(args.ssh_config) + ['sudo python3 -'], deadline, 60,
                        input=MANIFEST_PROGRAM, capture_output=True, text=True, check=True)
     info = validate_manifest(json.loads(manifest.stdout))
+    if expected is not None and info != expected:
+        raise BackupError('BACKUP_EXPECTED_MANIFEST_MISMATCH')
     name, digest = info['name'], info['sha256']
     key = 'daily/' + name
     existing = matching_object(args.bucket, key, digest, info['bytes'], deadline)
+    if existing_only and not existing:
+        raise BackupError('BACKUP_EXISTING_ARCHIVE_REQUIRED')
     if not existing and info['bytes'] > MAX_NEW_UPLOAD_BYTES:
         raise BackupError('BACKUP_NEW_UPLOAD_EXCEEDS_SINGLE_PUT_LIMIT')
     checksum_bytes = (digest + '  ' + name + '\n').encode('ascii')
     sidecar_exists = matching_sidecar(args.bucket, key + '.sha256', checksum_bytes, directory, deadline)
+    if existing_only and not sidecar_exists:
+        raise BackupError('BACKUP_EXISTING_SIDECAR_REQUIRED')
     if not existing:
         if shutil.disk_usage(directory).free < info['bytes'] + 1024 ** 3:
             raise RuntimeError('Runner has insufficient free disk for this encrypted backup')
@@ -182,12 +212,15 @@ def main(args, deadline=None):
         if not matching_sidecar(args.bucket, key + '.sha256', checksum_bytes, directory, deadline):
             raise RuntimeError('Uploaded backup checksum could not be verified')
     deadline.remaining()
-    print(json.dumps({'status': 'already_present' if existing else 'uploaded', 'backup': name,
-                      'snapshot_sha256': digest, 'archive_bytes_transferred': 0 if existing else info['bytes'],
-                      'local_ciphertext_sha256_verified': not existing,
-                      's3_sha256_validated_on_create': not existing,
-                      'remote_metadata_matches': True, 'checksum_sidecar_readback_verified': True,
-                      'off_host_ciphertext_readback_verified': False}))
+    result = {'status': 'already_present' if existing else 'uploaded',
+              'local_ciphertext_sha256_verified': not existing,
+              's3_sha256_validated_on_create': not existing,
+              'remote_metadata_matches': True, 'checksum_sidecar_readback_verified': True,
+              'off_host_ciphertext_readback_verified': False}
+    if not getattr(args, 'public_output', False):
+        result.update(backup=name, snapshot_sha256=digest,
+                      archive_bytes_transferred=0 if existing else info['bytes'])
+    print(json.dumps(result))
 
 
 if __name__ == '__main__':
@@ -195,6 +228,12 @@ if __name__ == '__main__':
     parser.add_argument('--ssh-config', type=Path, required=True)
     parser.add_argument('--bucket', required=True)
     parser.add_argument('--directory', type=Path, required=True)
+    parser.add_argument('--expected-manifest', type=Path,
+                        help='Private JSON file pinning the exact latest name, bytes and sha256')
+    parser.add_argument('--existing-only', action='store_true',
+                        help='Require the pin and existing archive/sidecar; never download or create an archive')
+    parser.add_argument('--public-output', action='store_true',
+                        help='Omit snapshot name, digest and byte counts from success output')
     try:
         main(parser.parse_args())
     except Exception as error:
