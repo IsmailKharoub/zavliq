@@ -1,0 +1,14 @@
+# Private localhost namespace only. The native runtime keeps its HTTP loopback rule.
+services:
+  echo-bootstrap:
+    environment:
+      PUBLIC_HOMESERVER_URL: http://localhost:80
+      PUBLIC_CONTROL_URL: http://localhost:80
+      # Match the already approved private-stage admission window.
+      REGISTRATION_PER_IP_HOUR: "1000"
+      REGISTRATION_GLOBAL_DAY: "1000"
+  echo:
+    network_mode: service:gateway
+    networks: !reset []
+    environment:
+      ZAVLIQ_CONTROL_URL: http://localhost:80

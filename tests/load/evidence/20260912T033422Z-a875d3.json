@@ -1,0 +1,82 @@
+{
+  "run_id": "20260912T033422Z-a875d3",
+  "fixture_id": "20260912T023909Z-a81d17",
+  "environment": "aws-staging",
+  "hardware": "AWS Lightsail us-east-1a medium_3_0: 2vCPU,4GiB RAM,80GiB SSD; Linux x86_64, Docker29.1.3. App commit5fd35f709cf117fb448c23babe2d7583a1d4c197; same service memory/policy limits. Generator on local Apple Silicon32GiB/10cores through encrypted SSH tunnel28180 -> remote loopback19180; DNS/TLS public path not measured. Exact image IDs recorded in infra/.local/staging-plan/runtime-config.json.",
+  "clients": 100,
+  "duration_seconds": 180.0,
+  "target_messages_per_second": 10.0,
+  "planned_messages": 1800,
+  "accepted_messages": 1800,
+  "observed_acknowledged_messages": 1800,
+  "missing_acknowledged_messages": 0,
+  "duplicate_sequences": 0,
+  "failures": [],
+  "missed_slots": 0,
+  "scheduled": 1800,
+  "receive_errors": 0,
+  "send_acknowledgement_latency": {
+    "count": 1800,
+    "p50_seconds": 0.373,
+    "p95_seconds": 0.8265,
+    "p99_seconds": 1.0661,
+    "max_seconds": 1.3813
+  },
+  "end_to_end_latency": {
+    "count": 1800,
+    "p50_seconds": 0.9456,
+    "p95_seconds": 1.4736,
+    "p99_seconds": 1.7831,
+    "max_seconds": 2.0151
+  },
+  "elapsed_including_drain_seconds": 183.235,
+  "checks": {
+    "zero_acknowledged_events_lost": true,
+    "workload_complete": true,
+    "p95_under_two_seconds": true,
+    "full_load_parameters": false,
+    "local_diagnostic_passed": true,
+    "aws_staging_gate_passed": false
+  },
+  "generator": {
+    "tokio_workers_per_runtime": 2,
+    "setup_concurrency": 2,
+    "pair_validation_concurrency": 4,
+    "process_start_spacing_seconds": 0.5,
+    "store_and_sync_warmup_before_timer": true,
+    "setup_timeout_seconds": 90,
+    "measurement_rpc_timeout_seconds": 30,
+    "inbox_mode": "background"
+  },
+  "native_binary_sha256": "2d059483740b793cc7f424cc097a00ab83060a7d68ac27d994fc5f369b85fc1d",
+  "rpc_diagnostics": {
+    "send_lock_wait": {
+      "count": 1800,
+      "p50_seconds": 0.0,
+      "p95_seconds": 0.0,
+      "p99_seconds": 0.0,
+      "max_seconds": 0.0302
+    },
+    "send_rpc": {
+      "count": 1800,
+      "p50_seconds": 0.3716,
+      "p95_seconds": 0.8245,
+      "p99_seconds": 1.065,
+      "max_seconds": 1.3804
+    },
+    "inbox_lock_wait": {
+      "count": 3900,
+      "p50_seconds": 0.0,
+      "p95_seconds": 0.0,
+      "p99_seconds": 0.0,
+      "max_seconds": 0.7945
+    },
+    "inbox_rpc": {
+      "count": 3900,
+      "p50_seconds": 0.0005,
+      "p95_seconds": 0.0051,
+      "p99_seconds": 0.0508,
+      "max_seconds": 0.0519
+    }
+  }
+}

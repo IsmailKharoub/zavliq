@@ -1,0 +1,193 @@
+{
+  "run_id": "20260912T033422Z-a875d3",
+  "window": {
+    "run_id": "20260912T033422Z-a875d3",
+    "fixture_id": "20260912T023909Z-a81d17",
+    "method": "Post-run wall-minus-monotonic mapping on same Mac; assumes no wall-clock jump.",
+    "mapped_start": "2026-09-12T03:42:12.804838+00:00",
+    "mapped_last_observation": "2026-09-12T03:45:13.680782+00:00"
+  },
+  "aws_metrics": {
+    "CPUUtilization": {
+      "unit": "Percent",
+      "points": [
+        {
+          "average": 7.452251501045812,
+          "maximum": 22.42537375622927,
+          "minimum": 3.2916666666666665,
+          "timestamp": "2026-09-12T03:45:00+00:00",
+          "unit": "Percent"
+        }
+      ]
+    },
+    "BurstCapacityPercentage": {
+      "unit": "Percent",
+      "points": [
+        {
+          "average": 2.2156111140046293,
+          "maximum": 2.2156111140046293,
+          "minimum": 2.2156111140046293,
+          "timestamp": "2026-09-12T03:45:00+00:00",
+          "unit": "Percent"
+        }
+      ]
+    },
+    "BurstCapacityTime": {
+      "unit": "Seconds",
+      "points": [
+        {
+          "average": 382.8576005,
+          "maximum": 382.8576005,
+          "minimum": 382.8576005,
+          "timestamp": "2026-09-12T03:45:00+00:00",
+          "unit": "Seconds"
+        }
+      ]
+    },
+    "NetworkIn": {
+      "unit": "Bytes",
+      "points": [
+        {
+          "average": 469306.2,
+          "maximum": 1865998.0,
+          "minimum": 7018.0,
+          "timestamp": "2026-09-12T03:45:00+00:00",
+          "unit": "Bytes"
+        }
+      ]
+    },
+    "NetworkOut": {
+      "unit": "Bytes",
+      "points": [
+        {
+          "average": 997588.6,
+          "maximum": 4013880.0,
+          "minimum": 4239.0,
+          "timestamp": "2026-09-12T03:45:00+00:00",
+          "unit": "Bytes"
+        }
+      ]
+    },
+    "StatusCheckFailed": {
+      "unit": "Count",
+      "points": [
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12T03:43:00+00:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12T03:42:00+00:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12T03:46:00+00:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12T03:41:00+00:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12T03:45:00+00:00",
+          "unit": "Count"
+        },
+        {
+          "average": 0.0,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "timestamp": "2026-09-12T03:44:00+00:00",
+          "unit": "Count"
+        }
+      ]
+    }
+  },
+  "historical_request_logs": {
+    "synapse": {
+      "line_classes": {
+        "WARNING": 2526
+      },
+      "http_status_counts": {},
+      "fixed_keyword_counts": {
+        "disconnect": 2078,
+        "request": 2078,
+        "timeout": 2078,
+        "context": 448,
+        "finished": 448
+      },
+      "response_time_ms": {
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "max": null
+      }
+    },
+    "control": {
+      "line_classes": {
+        "30": 7290
+      },
+      "http_status_counts": {
+        "200": 3645
+      },
+      "fixed_keyword_counts": {},
+      "response_time_ms": {
+        "count": 3645,
+        "p50": 4.9329630001448095,
+        "p95": 20.492866000160575,
+        "max": 241.820765000768
+      }
+    },
+    "gateway": {
+      "line_classes": {},
+      "http_status_counts": {},
+      "fixed_keyword_counts": {},
+      "response_time_ms": {
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "max": null
+      }
+    },
+    "postgres": {
+      "line_classes": {},
+      "http_status_counts": {},
+      "fixed_keyword_counts": {},
+      "response_time_ms": {
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "max": null
+      }
+    }
+  },
+  "scope": "180-second optimized notification-driven inbox diagnostic; current5fd backend, same 100-client fixture and SSH path",
+  "previous_diagnostic_comparison": {
+    "previous_run_id": "20260912T025538Z-db2976",
+    "previous_cpu_average_percent": 54.8185,
+    "current_cpu_average_percent": 7.4523,
+    "previous_control_successful_requests": 12073,
+    "current_control_successful_requests": 3645,
+    "previous_control_p95_response_ms": 196.5848,
+    "current_control_p95_response_ms": 20.4929
+  },
+  "limitations": [
+    "CPU/burst metrics are coarse AWS samples overlapping the timed interval, not per-request timings.",
+    "Successful Matrix request timing remains unavailable at the intentional WARNING log level.",
+    "The optimized diagnostic is 180 seconds on the earlier backend, not the final 30-minute release gate.",
+    "Synapse disconnect/timeout warnings increased under long polling; there were no missing accepted messages in the measured result."
+  ]
+}

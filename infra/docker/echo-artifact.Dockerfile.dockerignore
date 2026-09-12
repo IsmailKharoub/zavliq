@@ -1,0 +1,15 @@
+.git
+**/.local
+**/.private
+**/.terraform
+**/.production
+**/.staging
+**/*.tfstate*
+**/*.tfvars
+**/*.tfvars.json
+**/*.tfplan
+**/crash*.log
+**/node_modules
+**/target
+**/__pycache__
+infra/.artifacts
