@@ -44,7 +44,8 @@ jobs:
           python -m pip install --no-deps ./services/echo
           python -m unittest discover -s services/echo/tests
           ZAVLIQ_TEST_BINARY=crates/zavliq-runtime/target/debug/zavliq node --test services/echo/tests/bootstrap.test.mjs
-          python -m unittest discover -s tests/onboarding
+          python -I -B -m unittest discover -s tests/onboarding
+          python -I -B -W error::ResourceWarning -m unittest discover -s examples/pilot
           python -m unittest discover -s tests/load
           python -m unittest discover -s tests/recovery
           python -m unittest discover -s infra/tests
