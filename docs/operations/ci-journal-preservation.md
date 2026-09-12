@@ -1,6 +1,6 @@
 # Private CI cleanup evidence
 
-`infra/scripts/seal-ci-journal.py` prepares encrypted cleanup evidence for a later ciphertext-only artifact upload. It is source tooling, not an active workflow or a proof of production recovery. The deployment and backup templates remain inactive and still require integration changes before use.
+`infra/scripts/seal-ci-journal.py` prepares encrypted cleanup evidence for a later ciphertext-only artifact upload. It is source tooling, not an active workflow or a proof of production recovery. The manual existing-backup template now integrates it through `prepare-ci-backup.py`; both templates remain inactive. The full-deployment template still requires integration changes before use. See [the manual check procedure](existing-backup-check.md) for its exact inputs, limits and remaining live verification.
 
 The raw access journal includes private infrastructure metadata. GitHub repository readers can download workflow artifacts; secret masking applies to logs and does not redact files inside an artifact. Preserve the entire journal encrypted to the independently approved recovery public recipient. Do not upload plaintext, SSH files or the journal directory. [GitHub artifact access](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)
 
@@ -43,9 +43,9 @@ Age receives journal bytes on stdin and writes to an exclusive private temporary
 
 Success stdout contains only `ok`, the encrypted file's SHA256 and size, and `off_host_preservation_verified: false`. It does not expose journal contents, source-file hashes, recipient values or infrastructure identifiers. It proves local ciphertext publication, not successful artifact upload, off-host decryption, SSH cleanup, backup transfer or recovery. A late publication/synchronization failure may leave a final ciphertext file but still reports preservation as unconfirmed; do not infer success from file existence.
 
-## Workflow integration still required
+## Workflow ordering and remaining integration
 
-Give the access step an explicit ID. Run preservation after cleanup whenever access was attempted, including access or cleanup failure. Skip it only when access never started; do not use journal-file existence as the condition. An early access failure can leave no journal, which must remain an explicit unconfirmed preservation result.
+The inactive existing-backup template implements the following ordering. Apply and independently review the same requirements when correcting the full-deployment template. Give the access step an explicit ID. Run preservation after cleanup whenever access was attempted, including access or cleanup failure. Skip it only when access never started; do not use journal-file existence as the condition. An early access failure can leave no journal, which must remain an explicit unconfirmed preservation result.
 
 Use the existing pinned artifact action only after the seal step succeeds, including when an earlier cleanup step failed. Give the artifact a unique run-ID/run-attempt name, exactly one completed `.age` path, `if-no-files-found: error` and seven-day retention. Preserve an existing journal after successful cleanup too. Keep cleanup failure visible in the job result; sealing cannot turn failed cleanup into success. Never use a raw journal or partial ciphertext as an upload fallback.
 
@@ -60,4 +60,4 @@ python3 -I -B -W error::ResourceWarning -m unittest discover \
   -s infra/tests -p test_seal_ci_journal.py
 ```
 
-Native tests are skipped when both explicit testing paths are absent. Passing local tests does not establish Linux runner installation, approved-recipient off-host decryptability, live cleanup or artifact access. Those remain separate verification steps before workflow activation.
+Native tests are skipped when both explicit testing paths are absent. A separate local Linux ARM64 container also exercised the pinned Linux AMD64 binaries through emulation with fresh disposable keys. That checks compatibility only. Passing local tests does not establish native GitHub runner installation, approved-recipient off-host decryptability, live cleanup or artifact access. Those remain separate verification steps before workflow activation.

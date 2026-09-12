@@ -1,9 +1,7 @@
-# Template only. Enable after the production environment and backup drill pass.
-name: Off-host encrypted backups
+# Inactive manual-check template. Complete the documented preflight review before installation.
+name: Verify an existing encrypted backup
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '43 2,14 * * *'
 permissions:
   contents: read
   id-token: write
@@ -15,67 +13,92 @@ jobs:
     if: github.repository == 'IsmailKharoub/zavliq' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: production
-    # All step limits sum to 24 minutes, including cleanup and journal upload.
-    timeout-minutes: 30
+    # Step limits total 28 minutes, with cleanup, sealing and upload reserved.
+    timeout-minutes: 35
     env:
-      INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
-      INSTANCE_ARN: ${{ vars.LIGHTSAIL_INSTANCE_ARN }}
-      DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-      EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
-      BUCKET: ${{ vars.BACKUP_BUCKET }}
+      INSTANCE: ${{ secrets.LIGHTSAIL_INSTANCE }}
+      INSTANCE_ARN: ${{ secrets.LIGHTSAIL_INSTANCE_ARN }}
+      DEPLOY_ROLE: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+      EXPECTED_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+      BUCKET: zavliq-production-backups-${{ secrets.AWS_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         timeout-minutes: 2
         with:
           persist-credentials: false
-      - name: Validate production destination
-        timeout-minutes: 1
-        run: |
-          python3 - <<'PY'
-          import os,re,runpy
-          account = os.environ['EXPECTED_ACCOUNT']
-          runpy.run_path('infra/scripts/ci-host-access.py')['validate_identity'](
-              os.environ['INSTANCE'], os.environ['INSTANCE_ARN'], account)
-          if os.environ['DEPLOY_ROLE'] != 'arn:aws:iam::'+account+':role/zavliq-production-github':
-              raise SystemExit('Production role mismatch')
-          if os.environ['BUCKET'] != 'zavliq-production-backups-'+account:
-              raise SystemExit('Production backup bucket mismatch')
-          PY
+      - name: Validate private inputs and pinned encryption before access
+        id: prepare
+        timeout-minutes: 3
+        env:
+          EXPECTED_BACKUP_MANIFEST: ${{ secrets.BACKUP_EXPECTED_MANIFEST }}
+          JOURNAL_RECIPIENT: ${{ secrets.BACKUP_JOURNAL_RECIPIENT }}
+          JOURNAL_RECIPIENT_SHA256: ${{ secrets.BACKUP_JOURNAL_RECIPIENT_SHA256 }}
+        run: >-
+          python3 infra/scripts/prepare-ci-backup.py
+          --directory "$RUNNER_TEMP/zavliq-backup-check"
       - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         timeout-minutes: 3
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
-          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
-          role-session-name: zavliq-backup-${{ github.run_id }}
+          allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID }}
+          role-session-name: zavliq-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          role-duration-seconds: 1800
           unset-current-credentials: true
           retry-max-attempts: 3
           action-timeout-s: 120
+          inline-session-policy: >-
+            {"Version":"2012-10-17","Statement":[
+              {"Effect":"Allow","Action":"sts:GetCallerIdentity","Resource":"*"},
+              {"Effect":"Allow","Action":["lightsail:GetInstance","lightsail:GetOperation"],"Resource":"*","Condition":{"StringEquals":{"aws:RequestedRegion":"us-east-1"}}},
+              {"Effect":"Allow","Action":["lightsail:GetInstanceAccessDetails","lightsail:OpenInstancePublicPorts","lightsail:CloseInstancePublicPorts"],"Resource":"${{ secrets.LIGHTSAIL_INSTANCE_ARN }}","Condition":{"StringEquals":{"aws:RequestedRegion":"us-east-1"}}},
+              {"Effect":"Allow","Action":"s3:ListBucket","Resource":"arn:aws:s3:::zavliq-production-backups-${{ secrets.AWS_ACCOUNT_ID }}","Condition":{"StringLike":{"s3:prefix":"daily/*"}}},
+              {"Effect":"Allow","Action":"s3:GetObject","Resource":"arn:aws:s3:::zavliq-production-backups-${{ secrets.AWS_ACCOUNT_ID }}/daily/*"}
+            ]}
       - name: Prepare temporary verified SSH access
+        id: open_access
         timeout-minutes: 3
         run: >-
           python3 infra/scripts/ci-host-access.py open --directory "$RUNNER_TEMP/zavliq-access"
           --instance "$INSTANCE" --instance-arn "$INSTANCE_ARN" --account-id "$EXPECTED_ACCOUNT"
-      - name: Retrieve encrypted backup and verify private S3 upload
+      - name: Verify only the pinned existing archive and checksum sidecar
+        id: check_backup
         timeout-minutes: 10
-        run: |
-          python3 infra/scripts/fetch-backup.py --ssh-config "$RUNNER_TEMP/zavliq-access/ssh/config" \
-            --bucket "$BUCKET" --directory "$RUNNER_TEMP/backups"
+        run: >-
+          python3 infra/scripts/fetch-backup.py --ssh-config "$RUNNER_TEMP/zavliq-access/ssh/config"
+          --bucket "$BUCKET" --directory "$RUNNER_TEMP/backups"
+          --expected-manifest "$RUNNER_TEMP/zavliq-backup-check/expected-manifest.json"
+          --existing-only --public-output
       - name: Close only this run's temporary access
-        timeout-minutes: 3
         id: close_access
-        if: always()
+        timeout-minutes: 3
+        if: always() && contains(fromJSON('["success","failure","cancelled"]'), steps.open_access.outcome)
         run: |
           cleanup_status=0
           python3 infra/scripts/ci-host-access.py close --directory "$RUNNER_TEMP/zavliq-access" || cleanup_status=$?
           rm -rf -- "$RUNNER_TEMP/zavliq-access/ssh" "$RUNNER_TEMP/backups"
           exit "$cleanup_status"
-      - name: Preserve the rule journal if cleanup failed
+      - name: Seal the exact journal after attempted cleanup
+        id: seal_journal
         timeout-minutes: 2
-        if: always() && steps.close_access.outcome == 'failure'
+        if: always() && contains(fromJSON('["success","failure","cancelled"]'), steps.open_access.outcome)
+        env:
+          JOURNAL_RECIPIENT_SHA256: ${{ secrets.BACKUP_JOURNAL_RECIPIENT_SHA256 }}
+        run: >-
+          python3 infra/scripts/seal-ci-journal.py seal
+          --age-binary "$RUNNER_TEMP/zavliq-backup-check/dependency/age"
+          --age-sha256 eb7dd1b518f0a307c99cd97782623c5321da049154b04acd2d98d21aa7bc9b2c
+          --age-version v1.3.2
+          --recipient-file "$RUNNER_TEMP/zavliq-backup-check/recipient.txt"
+          --recipient-sha256 "$JOURNAL_RECIPIENT_SHA256"
+          --journal "$RUNNER_TEMP/zavliq-access/state.json"
+          --output "$RUNNER_TEMP/zavliq-backup-check/ciphertext/journal.age"
+      - name: Preserve only successfully sealed ciphertext
+        timeout-minutes: 2
+        if: always() && steps.seal_journal.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: production-ssh-rule-${{ github.run_id }}
-          path: ${{ runner.temp }}/zavliq-access/state.json
-          if-no-files-found: ignore
+          name: production-ssh-rule-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/zavliq-backup-check/ciphertext/journal.age
+          if-no-files-found: error
           retention-days: 7
