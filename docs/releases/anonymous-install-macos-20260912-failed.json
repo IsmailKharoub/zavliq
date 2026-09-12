@@ -1,0 +1,23 @@
+{
+  "schema": "zavliq-anonymous-install-smoke-v1",
+  "scope": "anonymous_release_install_and_local_readiness",
+  "ok": false,
+  "source_sha": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "version": "v0.1.0",
+  "manifest_sha256": "f81baae19d3bd9b5c32484afe2f225d509f769e2b77ffa73f995bf67d4887cf8",
+  "started_at": "2026-09-12T09:43:09.036204+00:00",
+  "runtime_control_origin": "http://127.0.0.1:9",
+  "platform_target": "aarch64-apple-darwin",
+  "driver_sha256": "d70c78a39b1c7e1d4d78635c9a30eeaffe663f189b2d13969955974872d5e1a1",
+  "download_helper_sha256": "552e1e243ce4664b4978ed8927dfb2333f95f0b3f139f6bf255e275d3c43ba43",
+  "registration_calls": 0,
+  "message_calls": 0,
+  "model_calls": 0,
+  "full_onboarding_gate_passed": false,
+  "production_recovery_gate_passed": false,
+  "error_code": "FileNotFoundError",
+  "failure_stage": "installation",
+  "elapsed_seconds": 2.634,
+  "install_root_preserved": true,
+  "finished_at": "2026-09-12T09:43:11.670564+00:00"
+}

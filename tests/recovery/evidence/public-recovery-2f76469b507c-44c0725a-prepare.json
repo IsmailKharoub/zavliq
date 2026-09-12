@@ -1,0 +1,130 @@
+{
+  "clients_closed": true,
+  "content_hashes": {
+    "file_sha256": "9c2165b259ff83bee1acf6f27746988b7e5f100e31274dc638fe24d7bea92ca3",
+    "json_sha256": "3abb994b88f7894eb2112bc82eee65b440c234bfd9b1ca578dbfae912285c587",
+    "text_sha256": "23fdd92d7e4c29c5bc62ee1a66bacc7660a820233181686771dc78230505a3e4"
+  },
+  "driver_sha256": "bcc06dc5692442840f98d207efb38260758e6e4b8d5bf5a31ba6ef68f96ff997",
+  "encrypted_baseline_in_separate_room": true,
+  "historical_events": {
+    "channel_text": {
+      "encryption": "standard",
+      "event_id": "$WE0apUfzeE0y-FPoxpqBmVLgxWq4wAkQ-9v4VfMX6jw",
+      "kind": "text",
+      "room_id": "!lLRmOeATKoxQUOWSFq:zavliq.com"
+    },
+    "e2ee_file": {
+      "encryption": "e2ee",
+      "event_id": "$kOJxTBSkH71xC3QdiatSDAHlbQtwqq-_c0isJx8MXBM",
+      "kind": "file",
+      "room_id": "!kKhEsmzgbIvVFJKKOj:zavliq.com"
+    },
+    "e2ee_json": {
+      "encryption": "e2ee",
+      "event_id": "$o84QCpB73ivuhafZhi5ae1_xM0Cg3R9W8KqzVc7420s",
+      "kind": "json",
+      "room_id": "!kKhEsmzgbIvVFJKKOj:zavliq.com"
+    },
+    "e2ee_text": {
+      "encryption": "e2ee",
+      "event_id": "$fFBwQpLP-fJsi4XaWGmpECFn1JS2OQBU5NW-2MIn6FQ",
+      "kind": "text",
+      "room_id": "!kKhEsmzgbIvVFJKKOj:zavliq.com"
+    },
+    "group_a_text": {
+      "encryption": "standard",
+      "event_id": "$G4brlJv9LuOTJKjki1s4j2ov3VExdnflc_bbxFsh5mY",
+      "kind": "text",
+      "room_id": "!WVGlSrdKSyABThgWdm:zavliq.com"
+    },
+    "standard_file": {
+      "encryption": "standard",
+      "event_id": "$tI8ITrjPVIThEderbtHzKdLz_q-iOi5B6ZUe_tHdVGM",
+      "kind": "file",
+      "room_id": "!mdiRQqfsFeqVALuldF:zavliq.com"
+    },
+    "standard_json": {
+      "encryption": "standard",
+      "event_id": "$cYC1umre1UWG4VsSB43nMDZwcXjrsmVJypbpGjGi3gs",
+      "kind": "json",
+      "room_id": "!mdiRQqfsFeqVALuldF:zavliq.com"
+    },
+    "standard_text": {
+      "encryption": "standard",
+      "event_id": "$2nvuEpxGz5oAVJr1dbViLqi4SbVSMHNPj776Snk8KgA",
+      "kind": "text",
+      "room_id": "!mdiRQqfsFeqVALuldF:zavliq.com"
+    }
+  },
+  "historical_recipient_cache_empty_at_prepare": true,
+  "https": {
+    "canonical_discovery_verified": true,
+    "certificate_verified": true,
+    "hostname_verified": true,
+    "redirects_followed": false,
+    "registration_open": true
+  },
+  "identities": {
+    "a": {
+      "device_id": "ZAVL8F214BE26328DF86A72D20EC",
+      "homeserver": "https://zavliq.com",
+      "user_id": "@arden-44c0725a:zavliq.com"
+    },
+    "b": {
+      "device_id": "ZAVL13198689C56835845FF748D6",
+      "homeserver": "https://zavliq.com",
+      "user_id": "@mira-44c0725a:zavliq.com"
+    }
+  },
+  "installed_sdk_sha256": {
+    "zavliq": "5124055596f961ad12f362f002d3296bf54fe6c1d597f8cd089331a6adadc689",
+    "zavliq.client": "4cce7bf19d0e9b93a3af68435040c33056a61695db7b616fa12312e5a45f7751"
+  },
+  "launch_verified": false,
+  "limitations": [
+    "Backup, off-host retrieval, host replacement, fencing, DNS/TLS routing and full RTO/RPO are operator-owned.",
+    "Only daily message/contact quota counters are compared in the same UTC bucket; limit exhaustion, minute-counter expiry and media quota accounting are not tested.",
+    "Channel publication and joined memberships are checked; publisher permission changes, bans and directory settings are not tested.",
+    "Browser/client-key-loss recovery and restored Echo device/reply checks are separate."
+  ],
+  "ok": true,
+  "phase": "prepare",
+  "prepared_at": "2026-09-12T09:45:44.402984+00:00",
+  "provenance": {
+    "image_ids": {
+      "control": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5",
+      "echo": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b",
+      "gateway": "sha256:1a368a99a18db87f8d1794c4bfc15f777774978c639ea43d4c644671f94f945f",
+      "postgres": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "synapse": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7"
+    },
+    "native_binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+    "origin": "https://zavliq.com",
+    "production_manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+    "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+    "server_name": "zavliq.com",
+    "source_archive_sha256": "2a96f82d9413c3adc8193e4335f6703f7f000923b709f11a24a04e03546a0c5e"
+  },
+  "public_guard_sha256": "665516d77cd43be6576612fa254679e56efc7b167dcc02bb15d6a290965a5e31",
+  "registration_calls": 2,
+  "rooms": {
+    "channel": "!lLRmOeATKoxQUOWSFq:zavliq.com",
+    "e2ee": "!kKhEsmzgbIvVFJKKOj:zavliq.com",
+    "group_a": "!WVGlSrdKSyABThgWdm:zavliq.com",
+    "group_b": "!fjuZdvfJTaIKSXqBSX:zavliq.com",
+    "pending_echo": "!YtLGwRHmKFaBqtOhFO:zavliq.com",
+    "standard": "!mdiRQqfsFeqVALuldF:zavliq.com",
+    "trust_e2ee": "!gVMlySjxDEOVFfEltc:zavliq.com"
+  },
+  "run_id": "public-recovery-2f76469b507c-44c0725a",
+  "schema": "zavliq-public-original-device-recovery-v1",
+  "shared_fixture_helpers_sha256": "025663b0d9b7153ca752a836ba43347e6a48a449048cb6d174ea6802b1ba7837",
+  "status": "prepared",
+  "target_attestation": {
+    "machine_route_operator_attested": true,
+    "route_checked_at": "2026-09-12T09:31:34.409794+00:00",
+    "target_machine_id_sha256": "fa42e973c43659f2e98cf89edca8313bd08aa77fc4f1f8f4ef4d48361fa23447",
+    "validated_target_json_sha256": "9fbbc24603a6cf461a731dc40520ff509137ccbe940f978ad858bc791bba5b25"
+  }
+}

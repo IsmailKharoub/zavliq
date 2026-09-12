@@ -1,0 +1,178 @@
+{
+  "schema": "zavliq-anonymous-install-container-boundary-v1",
+  "source_sha": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "version": "v0.1.0",
+  "manifest_sha256": "f81baae19d3bd9b5c32484afe2f225d509f769e2b77ffa73f995bf67d4887cf8",
+  "passing_result": "anonymous-install-linux-20260912.json",
+  "passing_result_sha256": "50bf32db2c7162daa070b42153334fe2522c06916cddb96606e204ad082ce635",
+  "driver_sha256": "1e376b24fe52aac780d67a7042c86d34283aa4621bb8e6d338945f160b8d152a",
+  "download_helper_sha256": "552e1e243ce4664b4978ed8927dfb2333f95f0b3f139f6bf255e275d3c43ba43",
+  "host": {
+    "architecture": "x86_64",
+    "emulated": false,
+    "host_packages_changed": false,
+    "staging_touched": false
+  },
+  "prerequisites": {
+    "public_base_image": "node@sha256:713cfbf4a0ac19f40e1bb9919893e126b74a5c8cf5d0623c9f89515c8f74c6fa",
+    "public_base_tag": "24.21.0-bookworm-slim",
+    "prepared_image_id": "sha256:4b5df19c1528769120761c7bf41a3941e205da70e2a0f68c214e312cfdd0e054",
+    "installed_only_in_disposable_container": true,
+    "node": "v24.21.0",
+    "python": "3.11.2",
+    "npm": "11.19.0"
+  },
+  "actual_smoke_isolation": {
+    "user": "1000:1000",
+    "cpu_limit": 1,
+    "memory_limit_bytes": 1073741824,
+    "pids_limit": 256,
+    "capabilities_dropped": [
+      "ALL"
+    ],
+    "no_new_privileges": true,
+    "read_only_root_filesystem": true,
+    "network": "bridge",
+    "published_ports": [],
+    "bind_mounts": [
+      {
+        "destination": "/verification/tests/onboarding",
+        "access": "read-only",
+        "contents": "two reviewed verification drivers"
+      },
+      {
+        "destination": "/proof",
+        "access": "read-write",
+        "contents": "fresh isolated install proof directory"
+      }
+    ],
+    "docker_socket_mounted": false,
+    "credentials_mounted": false,
+    "app_volumes_mounted": false,
+    "host_network": false
+  },
+  "failed_first_attempt": {
+    "container": "zavliq-install-smoke-20260912",
+    "exit_code": 1,
+    "stage": "helper import before driver logic",
+    "failure": "The /driver mount had fewer than three ancestors required by the shared release helper.",
+    "download_calls": 0,
+    "native_processes_started": 0,
+    "state_retained": true,
+    "execution_record_sha256": "b99157a78f7c6ebb92dae95a7928c299ba3bc2abffceb2dcef22c6f5776da604",
+    "stderr_sha256": "efeae5835207cd2e61a9de298b323079ef279b1cb988d10184f5990e88f68b99",
+    "correction": "Mounted the same two driver files at /verification/tests/onboarding and used a distinct fresh container and proof directory.",
+    "driver_and_release_assets_unchanged": true
+  },
+  "passing_attempt": {
+    "container": "zavliq-install-smoke-20260912-2",
+    "exit_code": 0,
+    "installation_and_local_readiness_seconds": 15.037,
+    "prerequisite_preparation_excluded_from_measurement": true,
+    "registration_calls": 0,
+    "message_calls": 0,
+    "model_calls": 0,
+    "identity_files_absent": true,
+    "runtime_locks_released": true
+  },
+  "final_containers": [
+    {
+      "name": "/zavliq-install-prep-20260912",
+      "exit_code": 0,
+      "pid": 0
+    },
+    {
+      "name": "/zavliq-install-smoke-20260912",
+      "exit_code": 1,
+      "pid": 0
+    },
+    {
+      "name": "/zavliq-install-smoke-20260912-2",
+      "exit_code": 0,
+      "pid": 0
+    }
+  ],
+  "all_verification_containers_stopped": true,
+  "remaining_verification_runtime_processes": 0,
+  "production_services_after_exit": {
+    "synapse": {
+      "image_id": "sha256:ad076f133f0795ec665d3419c0d2d8b4645853f80f64e27cee1dc00061dfe2d7",
+      "running": true,
+      "paused": false,
+      "docker_health": "healthy",
+      "restart_count": 0
+    },
+    "control": {
+      "image_id": "sha256:5f53d7fbef3b59b417716f3798243b48199f9a629c24ec10ad0c1ead711cf0e5",
+      "running": true,
+      "paused": false,
+      "docker_health": "healthy",
+      "restart_count": 0
+    },
+    "gateway": {
+      "image_id": "sha256:1a368a99a18db87f8d1794c4bfc15f777774978c639ea43d4c644671f94f945f",
+      "running": true,
+      "paused": false,
+      "docker_health": "no-healthcheck",
+      "restart_count": 0
+    },
+    "echo": {
+      "image_id": "sha256:1cb8800c5984b0e4d900a916df57450fb9ab158087c9e9a45764b8c33de51b2b",
+      "running": true,
+      "paused": false,
+      "docker_health": "healthy",
+      "restart_count": 0
+    },
+    "postgres": {
+      "image_id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "running": true,
+      "paused": false,
+      "docker_health": "healthy",
+      "restart_count": 0
+    }
+  },
+  "production_image_ids_match_reviewed_manifest": true,
+  "post_exit_operator_health_report": {
+    "read_at": "2026-09-12T09:54:42.081838+00:00",
+    "existing_operator_health_report": {
+      "ok": true,
+      "checked_at": 1789206877,
+      "checks": [
+        {
+          "check": "running_images",
+          "ok": true
+        },
+        {
+          "check": "public_https",
+          "ok": true
+        },
+        {
+          "check": "disk",
+          "ok": true
+        },
+        {
+          "check": "backup_age",
+          "ok": true
+        }
+      ]
+    },
+    "new_service_requests_performed_by_verifier": false
+  },
+  "read_only_post_smoke_audit_sha256": "4de7fde698108938821132e09b58312d458dd9bd74df740171f49fcc3c269789",
+  "retained_private_container_inspect_sha256": "ecb8bb824b628ebae03e4eae752d38e6952abe53f5d3e16830a287fd4beaba84",
+  "resources": {
+    "before": {
+      "memory_available_kib": 2948060,
+      "disk_free_bytes": 74824474624
+    },
+    "after": {
+      "memory_available_kib": 2884768,
+      "disk_free_bytes": 74512220160
+    }
+  },
+  "all_proof_directories_and_exited_containers_retained": true,
+  "limitations": [
+    "This verifies anonymous installation and local readiness after prerequisites, not model-driven onboarding or production messaging.",
+    "Production recovery, remaining soak and model gates are not established by this smoke check."
+  ]
+}

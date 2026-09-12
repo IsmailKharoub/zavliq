@@ -1,0 +1,16 @@
+{
+  "schema": "zavliq.anonymous-install-controller-correction.v1",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "failed_evidence": "anonymous-install-macos-20260912-failed.json",
+  "passing_evidence": "anonymous-install-macos-20260912.json",
+  "cause": "The clean test environment omitted the operator-provided Node.js and npm installation directory, so the prerequisite version check raised FileNotFoundError before running the installer.",
+  "failed_attempt_downloads_verified": true,
+  "failed_attempt_ran_native_or_installer": false,
+  "correction": "Validate the prerequisite Node.js directory and add only that directory to the restricted child PATH; caller credentials, configs and full PATH remain excluded.",
+  "original_failure_preserved": true,
+  "fresh_root_on_retry": true,
+  "application_or_published_asset_changes": false,
+  "old_driver_sha256": "d70c78a39b1c7e1d4d78635c9a30eeaffe663f189b2d13969955974872d5e1a1",
+  "corrected_driver_sha256": "1e376b24fe52aac780d67a7042c86d34283aa4621bb8e6d338945f160b8d152a",
+  "download_helper_unchanged": true
+}

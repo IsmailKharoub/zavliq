@@ -1,0 +1,386 @@
+{
+  "schema": "zavliq.public-beta-publication-verification.v1",
+  "repository": "IsmailKharoub/zavliq",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "evidence_revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+  "release_tag": "v0.1.0",
+  "started_at": "2026-09-12T09:44:58.837910+00:00",
+  "scope": "Anonymous publication, immutable artifact bytes and linked evidence availability; no installation, account or message operations.",
+  "request_isolation": {
+    "authorization_sent": false,
+    "cookies_used": false,
+    "netrc_used": false,
+    "proxy_handler_disabled": true,
+    "certificate_and_hostname_validation": true,
+    "redirect_hosts_allowlisted": true
+  },
+  "repository_public": true,
+  "release_id": 387457474,
+  "published_at": "2026-09-12T09:40:00Z",
+  "prerelease": true,
+  "draft": false,
+  "immutable": true,
+  "tag_commit": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "notes_sha256": "8a60b24ceff44a494af446a2367e1361d4356f07dfad71d8de20c6ec28ff4f5a",
+  "release_url": "https://github.com/IsmailKharoub/zavliq/releases/tag/v0.1.0",
+  "assets_unchanged_from_reviewed_draft": true,
+  "notes_match_reviewed_publication_request": true,
+  "assets": [
+    {
+      "id": 558694712,
+      "name": "SHA256SUMS",
+      "size": 736,
+      "digest": "sha256:f81baae19d3bd9b5c32484afe2f225d509f769e2b77ffa73f995bf67d4887cf8",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694710,
+      "name": "install.sh",
+      "size": 5488,
+      "digest": "sha256:4e5f63bcd92ef2828e91f5be1e9c49a62d92bb1469cd4ed287890ded34dfaaaf",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694707,
+      "name": "skill.md",
+      "size": 4621,
+      "digest": "sha256:946e31b11270935ea44bd0a0c7a9b24a091e63232058ec9d36ec82105ce4723c",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694708,
+      "name": "zavliq-0.1.0-py3-none-any.whl",
+      "size": 9397,
+      "digest": "sha256:341f7bfe232cba2ea740c04212ccd9d6fb94749c621fd11863060710c2b8dcff",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694709,
+      "name": "zavliq-client-0.1.0.tgz",
+      "size": 8691,
+      "digest": "sha256:3adffeedad571090b60c44b9b80fd435230f16a0e4bffd03a947307ad8dfd1c9",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694737,
+      "name": "zavliq-mcp-0.1.0.tgz",
+      "size": 7821,
+      "digest": "sha256:c9e1737f7d9f4476a6a09d6c8f42c58c37c8dc354eaa0c613b358af7ea3eb305",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694740,
+      "name": "zavliq-node-0.1.0.tar.gz",
+      "size": 33598,
+      "digest": "sha256:89e775efc4d99e72362c241b845f3cc51dc8cfe9b6384c9feba4b655b6d5bdde",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694764,
+      "name": "zavliq-v0.1.0-aarch64-apple-darwin.tar.gz",
+      "size": 20510417,
+      "digest": "sha256:286ad3adc00be95492de14d7362dc9eb1c33d0e66f5040389bac6269a4b56eba",
+      "state": "uploaded"
+    },
+    {
+      "id": 558694753,
+      "name": "zavliq-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "size": 23264120,
+      "digest": "sha256:1aff746065944c43335508c267f57f89f64dcaaf3246fec409a46c00d896e8ea",
+      "state": "uploaded"
+    }
+  ],
+  "anonymous_downloads": {
+    "SHA256SUMS": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/SHA256SUMS",
+      "http_status": 200,
+      "bytes": 736,
+      "sha256": "f81baae19d3bd9b5c32484afe2f225d509f769e2b77ffa73f995bf67d4887cf8",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 0.238
+    },
+    "install.sh": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/install.sh",
+      "http_status": 200,
+      "bytes": 5488,
+      "sha256": "4e5f63bcd92ef2828e91f5be1e9c49a62d92bb1469cd4ed287890ded34dfaaaf",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 0.213
+    },
+    "skill.md": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/skill.md",
+      "http_status": 200,
+      "bytes": 4621,
+      "sha256": "946e31b11270935ea44bd0a0c7a9b24a091e63232058ec9d36ec82105ce4723c",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 0.213
+    },
+    "zavliq-0.1.0-py3-none-any.whl": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/zavliq-0.1.0-py3-none-any.whl",
+      "http_status": 200,
+      "bytes": 9397,
+      "sha256": "341f7bfe232cba2ea740c04212ccd9d6fb94749c621fd11863060710c2b8dcff",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 0.204
+    },
+    "zavliq-client-0.1.0.tgz": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/zavliq-client-0.1.0.tgz",
+      "http_status": 200,
+      "bytes": 8691,
+      "sha256": "3adffeedad571090b60c44b9b80fd435230f16a0e4bffd03a947307ad8dfd1c9",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 0.531
+    },
+    "zavliq-mcp-0.1.0.tgz": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/zavliq-mcp-0.1.0.tgz",
+      "http_status": 200,
+      "bytes": 7821,
+      "sha256": "c9e1737f7d9f4476a6a09d6c8f42c58c37c8dc354eaa0c613b358af7ea3eb305",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 0.519
+    },
+    "zavliq-node-0.1.0.tar.gz": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/zavliq-node-0.1.0.tar.gz",
+      "http_status": 200,
+      "bytes": 33598,
+      "sha256": "89e775efc4d99e72362c241b845f3cc51dc8cfe9b6384c9feba4b655b6d5bdde",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 0.216
+    },
+    "zavliq-v0.1.0-aarch64-apple-darwin.tar.gz": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/zavliq-v0.1.0-aarch64-apple-darwin.tar.gz",
+      "http_status": 200,
+      "bytes": 20510417,
+      "sha256": "286ad3adc00be95492de14d7362dc9eb1c33d0e66f5040389bac6269a4b56eba",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 1.281
+    },
+    "zavliq-v0.1.0-x86_64-unknown-linux-gnu.tar.gz": {
+      "url": "https://github.com/IsmailKharoub/zavliq/releases/download/v0.1.0/zavliq-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "http_status": 200,
+      "bytes": 23264120,
+      "sha256": "1aff746065944c43335508c267f57f89f64dcaaf3246fec409a46c00d896e8ea",
+      "final_host": "release-assets.githubusercontent.com",
+      "seconds": 1.471
+    }
+  },
+  "manifest_sha256": "f81baae19d3bd9b5c32484afe2f225d509f769e2b77ffa73f995bf67d4887cf8",
+  "all_nine_asset_bytes_downloaded_and_hashed": true,
+  "anonymous_linked_documents": [
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/1ecf87506fe0fcd3b4e651decb3dd9834157a8af/docs/operations/backup-restore.md",
+      "http_status": 200,
+      "revision": "1ecf87506fe0fcd3b4e651decb3dd9834157a8af",
+      "path": "docs/operations/backup-restore.md",
+      "source_sha256": "53e0730f0e6d6cd218fb2f0301449d570980cd23637cefdab1aa2a7a369db49d",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/2f76469b507c8745d4be5ef311f32774021143aa/docs/install.md",
+      "http_status": 200,
+      "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+      "path": "docs/install.md",
+      "source_sha256": "fd7fd8db70c70ee651459c095e7faa85524fd092e9668619e1cefd2f2cdd3910",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/2f76469b507c8745d4be5ef311f32774021143aa/docs/launch-requirements.md",
+      "http_status": 200,
+      "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+      "path": "docs/launch-requirements.md",
+      "source_sha256": "0c532c4ac8bcc471cdab4e7732dacfbef6452eb56068d377b01b2c228361feff",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/2f76469b507c8745d4be5ef311f32774021143aa/docs/operations/onboarding-trials.md",
+      "http_status": 200,
+      "revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+      "path": "docs/operations/onboarding-trials.md",
+      "source_sha256": "4a7e10c5597d7cf676742a864635c0f948dda5538851f355b4cad0a99b2e2fe5",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/private-alert-delivery-20260912.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/private-alert-delivery-20260912.json",
+      "source_sha256": "04a8fed2600ebec8d4e1cbd14a419846416b47dfed06454ee99364bd031901bd",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/private-artifact-verification-2f76469b507c.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/private-artifact-verification-2f76469b507c.json",
+      "source_sha256": "928c1b8fe0da749dd966ba48f3feea284ce541f2716edf2edbe747fc266702be",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/private-bundle-retention-2f76469b507c.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/private-bundle-retention-2f76469b507c.json",
+      "source_sha256": "fefd65b443c25987c1abb37f82501b965f59803ff3b3ff0c62d63201b95e55e3",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/private-load-review-2f76469b507c-70d5ee.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/private-load-review-2f76469b507c-70d5ee.json",
+      "source_sha256": "fd2a0571ff1976f6549f659e1e752081117e11d8a339e92a257210894f28c21a",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/private-soak-start-2f76469b507c.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/private-soak-start-2f76469b507c.json",
+      "source_sha256": "03bb6e07eef4bf9354afc47cd47bea003f0253293630c179248276a153d485dc",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/production-activation-20260912.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/production-activation-20260912.json",
+      "source_sha256": "96bbe7eb40d64f78ddbff8ff6157daefaf41f69b176270ede8b55bf23f3e3c94",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/production-alert-delivery-20260912.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/production-alert-delivery-20260912.json",
+      "source_sha256": "65945c1cb7024f546cf938bdae266488723898c48e7a573928b39ae3bb7b237c",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/production-infrastructure-20260912.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/production-infrastructure-20260912.json",
+      "source_sha256": "719d2c1d7172897df76517fa5ce369aa1dacf020492bfaf00ab9a2096d757948",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/production-offhost-backup-20260912.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/production-offhost-backup-20260912.json",
+      "source_sha256": "c8fa62be9e5322c4f2835e37e7c413166c23279f5b84b8288aedb43c7211af40",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/public-browser-20260912.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/public-browser-20260912.json",
+      "source_sha256": "af98ef3974eff3914e38ab648c3ad002ea384d2c0b14a48067927f41bcd04e7d",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/docs/releases/public-bundle-verification-2f76469b507c.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "docs/releases/public-bundle-verification-2f76469b507c.json",
+      "source_sha256": "92d6027ec2a53cefed50d57974f8c7b21c096fe7f6ef76715dee26f234173c00",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/tests/load/evidence/20260912T073754Z-70d5ee.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "tests/load/evidence/20260912T073754Z-70d5ee.json",
+      "source_sha256": "94cd329872b895c47c3b7d4fd948db1a61b0288a4de8d38cd9972ab53cff19e5",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/tests/recovery/evidence/echo-2f76469b507c-665fb456.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "tests/recovery/evidence/echo-2f76469b507c-665fb456.json",
+      "source_sha256": "cbd365eb64401eedf6a5daf6f934cd37b8cf0b17b074ececeb7efc0cd45e1929",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/tests/recovery/evidence/public-echo-2f76469b507c-0f9084af-prepare.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "tests/recovery/evidence/public-echo-2f76469b507c-0f9084af-prepare.json",
+      "source_sha256": "2fed1bfc2bc1c1e7cdc035943e1e42de843fe162402f34fa6c00b590f8beff81",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/tests/recovery/evidence/recovery-2f76469b507c-871bca36-fixture-correction.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "tests/recovery/evidence/recovery-2f76469b507c-871bca36-fixture-correction.json",
+      "source_sha256": "312262a4c491362272c5483d3be4c8f9e9f5889c9d248b79e7e19608e371d17b",
+      "source_matches_commit": true
+    },
+    {
+      "url": "https://github.com/IsmailKharoub/zavliq/blob/939c5b9732227b56d0c36c2330dadd3ae9c0cc6a/tests/recovery/evidence/recovery-2f76469b507c-871bca36-verify.json",
+      "http_status": 200,
+      "revision": "939c5b9732227b56d0c36c2330dadd3ae9c0cc6a",
+      "path": "tests/recovery/evidence/recovery-2f76469b507c-871bca36-verify.json",
+      "source_sha256": "5f9294ed11c765e2b0c8ed5668b9bd1f29dd5862098a897083c60e7e03109092",
+      "source_matches_commit": true
+    }
+  ],
+  "anonymous_hosted_documents": {
+    "/skill.md": {
+      "url": "https://zavliq.com/skill.md",
+      "http_status": 200,
+      "bytes": 4621,
+      "sha256": "946e31b11270935ea44bd0a0c7a9b24a091e63232058ec9d36ec82105ce4723c",
+      "final_host": "zavliq.com",
+      "seconds": 2.582
+    },
+    "/status": {
+      "url": "https://zavliq.com/status",
+      "http_status": 200,
+      "bytes": 648,
+      "sha256": "e4802532eb150de7aa268146bc1c1e7985fb1d1a3d8b957f9ad8f149746a9323",
+      "final_host": "zavliq.com",
+      "seconds": 0.444
+    }
+  },
+  "publication_attempt_history": {
+    "initial_cli_lookup": {
+      "outcome": "failed_to_resolve_draft_by_tag",
+      "verified_at": "2026-09-12T09:39:58.536548+00:00",
+      "exact_release_id_reconciled": 387457474,
+      "reconciled_still_draft": true,
+      "failure_preserved": true
+    },
+    "successful_publication": {
+      "method": "PATCH existing release by exact ID",
+      "release_id": 387457474,
+      "operator_verified_at": "2026-09-12T09:39:59.555324+00:00",
+      "github_published_at": "2026-09-12T09:40:00Z",
+      "timestamp_note": "Operator wall clock and GitHub timestamp differ by less than one second; both original values are preserved.",
+      "replace_assets": false
+    }
+  },
+  "private_publication_proof_sha256": {
+    "intent.json": "0670b5c604b79d439989df0eebe6d4bad5104558e1364f454c38c702e511b720",
+    "before.json": "b903e04ebafc5ac13c5d75eb8922c4d7d63b5620136f9d3465315f966df427f9",
+    "repository-public.json": "3827cbe0399c11a200eaacece3fc293452359aa612a6056c4074579ed22b78e6",
+    "cli-lookup-failure.json": "80933b150fe0c9d7e6cdf0aca715946ec96f46f17ea9e6840b7131a7584f8776",
+    "publish-request.json": "1d47a9125312c6406535ca955612612b67be7014c5e9f29cf951fb043c467f73",
+    "result.json": "942cde5a129cebc0631bba4870caafe6f84871aabfd9ca3692405ec905f3f36a",
+    "release-notes.md": "8a60b24ceff44a494af446a2367e1361d4356f07dfad71d8de20c6ec28ff4f5a"
+  },
+  "ok": true,
+  "verified_at": "2026-09-12T09:45:11.589089+00:00",
+  "installer_executed": false,
+  "native_executed": false,
+  "account_registration_calls": 0,
+  "message_calls": 0,
+  "launch_requirements_complete": false,
+  "remaining_scope": [
+    "Actual anonymous installation and runtime interoperability are verified separately.",
+    "Production restore/RTO/RPO, completed soak and all unchanged full-launch gates remain separate."
+  ]
+}
