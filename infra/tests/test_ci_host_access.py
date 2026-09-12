@@ -1,5 +1,7 @@
 import importlib.util
+import fcntl
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -87,7 +89,7 @@ class HostAccessTests(unittest.TestCase):
                 instance = {'name': INSTANCE, 'arn': ARN, 'networking': {'ports': []}} | changes
                 with patch.object(access, 'aws', return_value={'instance': instance}) as aws, \
                         patch.object(access, 'runner_cidr') as ip, \
-                        patch.object(access.subprocess, 'run') as credentials:
+                        patch.object(access, 'prepare_identity') as credentials:
                     with self.assertRaisesRegex(access.AccessError, 'PRODUCTION_INSTANCE_MISMATCH'):
                         access.open_access(directory, **IDENTITY)
                 self.assertEqual([call.args[:3] for call in aws.call_args_list],
@@ -116,14 +118,15 @@ class HostAccessTests(unittest.TestCase):
                 if kind == 'open': rules.append(rule())
                 else: rules.clear()
                 return {'operation': operation(kind, resourceName=replacement['instance'])}
-            def credentials(argv, **kwargs):
+            def credentials(target_directory, instance, deadline):
                 self.assertEqual(stages, ['get-instance'])
-                self.assertEqual(argv[2:4], ['--instance', replacement['instance']])
+                self.assertEqual(instance, replacement['instance'])
+                self.assertEqual(target_directory, directory)
                 self.assertEqual(state_at(directory)['schema'], 'zavliq-ci-host-access-v2')
                 self.assertFalse(state_at(directory)['close_required'])
             with patch.object(access, 'aws', side_effect=service), \
                     patch.object(access, 'runner_cidr', return_value=CIDR), \
-                    patch.object(access.subprocess, 'run', side_effect=credentials):
+                    patch.object(access, 'prepare_identity', side_effect=credentials):
                 self.assertTrue(access.open_access(directory, **replacement)['temporary_rule_owned'])
                 self.assertEqual({key: state_at(directory)[key] for key in replacement}, replacement)
                 with patch.dict(access.os.environ, {'INSTANCE': 'zavliq-production-recovery-other',
@@ -175,7 +178,7 @@ class HostAccessTests(unittest.TestCase):
                 directory = Path(temporary) / 'access'
                 with patch.object(access, 'runner_cidr', return_value=CIDR), \
                         patch.object(access, 'ports', return_value=[rule(allowed)]), \
-                        patch.object(access.subprocess, 'run'), patch.object(access, 'change_rule') as change:
+                        patch.object(access, 'prepare_identity'), patch.object(access, 'change_rule') as change:
                     self.assertFalse(access.open_access(directory, **IDENTITY)['temporary_rule_owned'])
                     self.assertEqual(access.close_access(directory)['cleanup'], 'no_owned_rule')
                 change.assert_not_called()
@@ -190,7 +193,7 @@ class HostAccessTests(unittest.TestCase):
                 self.assertIsNone(persisted['open_operation']['id'])
                 raise subprocess.TimeoutExpired('aws', 25)
             with patch.object(access, 'runner_cidr', return_value=CIDR), patch.object(access, 'ports', return_value=[]), \
-                    patch.object(access.subprocess, 'run'), patch.object(access, 'aws', side_effect=lost_open):
+                    patch.object(access, 'prepare_identity'), patch.object(access, 'aws', side_effect=lost_open):
                 with self.assertRaises(subprocess.TimeoutExpired):
                     access.open_access(directory, **IDENTITY)
             with patch.object(access, 'aws', return_value={'operation': operation('close')}), \
@@ -204,7 +207,7 @@ class HostAccessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary) / 'access'
             with patch.object(access, 'runner_cidr', return_value=CIDR), patch.object(access, 'ports', return_value=[]), \
-                    patch.object(access.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'aws')), \
+                    patch.object(access, 'prepare_identity', side_effect=subprocess.CalledProcessError(1, 'aws')), \
                     patch.object(access, 'change_rule') as change:
                 with self.assertRaises(subprocess.CalledProcessError):
                     access.open_access(directory, **IDENTITY)
@@ -381,6 +384,66 @@ class HostAccessTests(unittest.TestCase):
             with self.assertRaises(subprocess.TimeoutExpired):
                 access.aws('get-operation', '--operation-id', OPEN_ID, deadline=access.Deadline(.08))
         self.assertLess(time.monotonic() - started, 2)
+
+    def test_prepare_timeout_stops_nested_process_and_keeps_rule_closed(self):
+        # A real helper and grandchild demonstrate that timeout cleanup does not
+        # merely reap the Python helper while leaving its nested AWS process alive.
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / 'access'
+            lock_path, ready = Path(temporary) / 'child.lock', Path(temporary) / 'ready'
+            child_code = ('import fcntl,os,time; from pathlib import Path; '
+                          f'f=open({str(lock_path)!r},"w"); fcntl.flock(f,fcntl.LOCK_EX); '
+                          f'Path({str(ready)!r}).write_text(str(os.getpid())); time.sleep(60)')
+            helper_code = ('import subprocess,sys,time; '
+                           f'p=subprocess.Popen([sys.executable,"-c",{child_code!r}]); time.sleep(60)')
+            real_popen = subprocess.Popen
+            helpers = []
+            def stalled(argv, **kwargs):
+                self.assertTrue(kwargs['start_new_session'])
+                self.assertIn('--instance', argv)
+                self.assertIn(INSTANCE, argv)
+                process = real_popen([sys.executable, '-c', helper_code], **kwargs)
+                helpers.append(process)
+                return process
+            started = time.monotonic()
+            try:
+                with patch.object(access, 'runner_cidr', return_value=CIDR), \
+                        patch.object(access, 'ports', return_value=[]), \
+                        patch.object(access.subprocess, 'Popen', side_effect=stalled), \
+                        patch.object(access, 'change_rule') as change:
+                    with self.assertRaisesRegex(access.AccessError, 'SSH_IDENTITY_INTERRUPTED'):
+                        access.open_access(directory, **IDENTITY, deadline=access.Deadline(1))
+                    self.assertEqual(access.close_access(directory)['cleanup'], 'no_owned_rule')
+                    change.assert_not_called()
+                self.assertLess(time.monotonic() - started, 4)
+                self.assertTrue(ready.exists(), 'Nested process must have actually started')
+                self.assertEqual(len(helpers), 1)
+                self.assertIsNotNone(helpers[0].returncode)
+                self.assertFalse(state_at(directory)['close_required'])
+                with lock_path.open('a') as lock:
+                    # The nested process releases its kernel lock only when it
+                    # exits; no PID polling or eventual reparenting is assumed.
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(lock, fcntl.LOCK_UN)
+            finally:
+                # Keep a regression failure from leaving our synthetic child.
+                if ready.exists():
+                    with lock_path.open('a') as lock:
+                        try:
+                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        except BlockingIOError:
+                            try:
+                                os.kill(int(ready.read_text()), 9)
+                            except ProcessLookupError:
+                                pass
+                        else:
+                            fcntl.flock(lock, fcntl.LOCK_UN)
+
+    def test_expired_budget_creates_no_identity_process(self):
+        with patch.object(access.subprocess, 'Popen') as spawn:
+            with self.assertRaisesRegex(access.AccessError, 'SSH_ACCESS_TIMEOUT'):
+                access.prepare_identity(Path('/unused'), INSTANCE, access.Deadline(-1))
+            spawn.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import tempfile
 import time
@@ -166,6 +167,32 @@ def confirm_ports(kind, state, deadline):
         deadline.pause()
 
 
+def prepare_identity(directory, instance, deadline):
+    # The helper invokes AWS itself. Killing only its Python parent would leave
+    # that nested process alive after this operation's remaining budget expires.
+    timeout = deadline.remaining(60)
+    argv = ['python3', str(Path(__file__).with_name('prepare-ssh.py')),
+            '--instance', instance, '--directory', str(directory / 'ssh')]
+    process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, start_new_session=True)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        # Reap our child and drain the inherited pipes after stopping its group.
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            raise AccessError('SSH_IDENTITY_CLEANUP_UNCONFIRMED_RETAIN_JOURNAL') from None
+        raise AccessError('SSH_IDENTITY_INTERRUPTED_RETAIN_JOURNAL') from None
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, argv,
+                                            output=stdout, stderr=stderr)
+
+
 def open_access(directory, *, instance, instance_arn, account_id, deadline=None):
     deadline = deadline or Deadline()
     identity = validate_identity(instance, instance_arn, account_id)
@@ -177,9 +204,7 @@ def open_access(directory, *, instance, instance_arn, account_id, deadline=None)
     borrowed = already_allowed(rules, cidr)
     state = {'schema': 'zavliq-ci-host-access-v2', **identity, 'cidr': cidr, 'close_required': False}
     write_state(directory, state)
-    subprocess.run(['python3', str(Path(__file__).with_name('prepare-ssh.py')), '--instance', identity['instance'],
-                    '--directory', str(directory / 'ssh')], check=True, capture_output=True,
-                   text=True, timeout=deadline.remaining(60))
+    prepare_identity(directory, identity['instance'], deadline)
     if not borrowed:
         state['close_required'] = True
         write_state(directory, state)

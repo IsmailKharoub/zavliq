@@ -10,7 +10,12 @@ import subprocess
 p=argparse.ArgumentParser();p.add_argument('--instance',required=True);p.add_argument('--directory',required=True);a=p.parse_args()
 os.umask(0o077)
 directory=Path(a.directory).resolve();directory.mkdir(parents=True,exist_ok=True,mode=0o700)
-result=subprocess.run(['aws','lightsail','get-instance-access-details','--region','us-east-1','--instance-name',a.instance,'--protocol','ssh'],check=True,capture_output=True,text=True)
+result=subprocess.run(['aws','lightsail','get-instance-access-details','--region','us-east-1',
+                       '--instance-name',a.instance,'--protocol','ssh','--output','json',
+                       '--cli-connect-timeout','5','--cli-read-timeout','15','--no-cli-pager'],
+                      check=True,capture_output=True,text=True,timeout=25,
+                      env={**os.environ,'AWS_MAX_ATTEMPTS':'1','AWS_PAGER':'',
+                           'AWS_EC2_METADATA_DISABLED':'true'})
 details=json.loads(result.stdout)['accessDetails']
 ip=details['ipAddress'];user=details['username']
 if not re.fullmatch(r'[0-9.]+',ip) or not re.fullmatch(r'[a-z_][a-z0-9_-]*',user):raise SystemExit('Unexpected SSH destination shape')

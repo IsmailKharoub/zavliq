@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Transfer the latest encrypted backup once, verify it, and keep S3 private."""
 import argparse
+import base64
 import datetime as dt
 import hashlib
 import json
@@ -9,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 
 MANIFEST_PROGRAM = '''import json,re
@@ -24,6 +26,13 @@ print(json.dumps({'name':p.name,'bytes':p.stat().st_size,'sha256':checksum.read_
 
 
 TRANSFER_SECONDS = 540  # Workflow transfer step is ten minutes; cleanup has its own budget.
+# Conservative decimal 5 GB cap for one conditional PutObject, not 5 GiB.
+# Manifest validation separately allows larger snapshots already held off-host.
+MAX_NEW_UPLOAD_BYTES = 5_000_000_000
+
+
+class BackupError(RuntimeError):
+    """Fixed, content-free failure code; never include remote response text."""
 
 
 class Deadline:
@@ -67,19 +76,68 @@ def validate_manifest(value, now=None):
     return value
 
 
-def matching_object(bucket, key, digest, deadline=None):
-    deadline = deadline or Deadline()
+def object_metadata(bucket, key, deadline):
     # A prefix-scoped ListBucket grant can yield403 for HEAD on a missing key.
     # Explicitly list the allowed prefix before requesting object metadata.
-    listing = command(['aws', 's3api', 'list-objects-v2', '--bucket', bucket, '--prefix', key, '--max-keys', '1', '--output', 'json'], deadline, 45, capture_output=True, text=True)
+    listing = command(['aws', 's3api', 'list-objects-v2', '--bucket', bucket, '--prefix', key, '--max-keys', '1', '--no-paginate', '--output', 'json'], deadline, 45, capture_output=True, text=True)
     if listing.returncode:
         raise RuntimeError('Cannot inspect backup object; verify the deployment role and bucket')
     if not any(item['Key'] == key for item in json.loads(listing.stdout).get('Contents', [])):
-        return False
+        return None
     result = command(['aws', 's3api', 'head-object', '--bucket', bucket, '--key', key, '--output', 'json'], deadline, 45, capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError('Cannot inspect backup object; verify the deployment role and bucket')
-    return json.loads(result.stdout).get('Metadata', {}).get('sha256') == digest
+    return json.loads(result.stdout)
+
+
+def require_object_shape(value, size):
+    if (type(value.get('ContentLength')) is not int or value['ContentLength'] != size or
+            value.get('ServerSideEncryption') != 'AES256'):
+        raise BackupError('BACKUP_REMOTE_KEY_CONFLICT')
+
+
+def matching_object(bucket, key, digest, size, deadline=None):
+    """Match recorded metadata only; this never hashes the off-host ciphertext."""
+    value = object_metadata(bucket, key, deadline or Deadline())
+    if value is None:
+        return False
+    require_object_shape(value, size)
+    if value.get('Metadata', {}).get('sha256') != digest:
+        raise BackupError('BACKUP_REMOTE_KEY_CONFLICT')
+    return True
+
+
+def create_object(bucket, key, path, digest, deadline, maximum):
+    # The conditional PUT protects against a concurrent writer after our read.
+    # Never fall back to an unconditional upload or retry a different key.
+    if not 1 <= path.stat().st_size <= MAX_NEW_UPLOAD_BYTES:
+        raise BackupError('BACKUP_NEW_UPLOAD_EXCEEDS_SINGLE_PUT_LIMIT')
+    checksum = base64.b64encode(bytes.fromhex(digest)).decode('ascii')
+    result = command(['aws', 's3api', 'put-object', '--bucket', bucket, '--key', key,
+                      '--body', str(path), '--content-length', str(path.stat().st_size),
+                      '--if-none-match', '*', '--server-side-encryption', 'AES256',
+                      '--checksum-sha256', checksum, '--metadata', 'sha256=' + digest,
+                      '--output', 'json'], deadline, maximum, capture_output=True, text=True, check=True)
+    value = json.loads(result.stdout)
+    if value.get('ChecksumSHA256') != checksum or value.get('ServerSideEncryption') != 'AES256':
+        raise BackupError('BACKUP_CONDITIONAL_UPLOAD_UNCONFIRMED')
+
+
+def matching_sidecar(bucket, key, expected, directory, deadline):
+    value = object_metadata(bucket, key, deadline)
+    if value is None:
+        return False
+    require_object_shape(value, len(expected))
+    # Legacy sidecars have no metadata hash. Read their bounded, nonsecret bytes
+    # instead of replacing them merely to attach newer metadata.
+    with tempfile.TemporaryDirectory(prefix='checksum-readback-', dir=directory) as temporary:
+        destination = Path(temporary) / 'checksum'
+        command(['aws', 's3api', 'get-object', '--bucket', bucket, '--key', key,
+                 '--range', 'bytes=0-' + str(len(expected)), str(destination), '--output', 'json'],
+                deadline, 45, capture_output=True, text=True, check=True)
+        if destination.stat().st_size != len(expected) or destination.read_bytes() != expected:
+            raise BackupError('BACKUP_REMOTE_KEY_CONFLICT')
+    return True
 
 
 def main(args, deadline=None):
@@ -92,7 +150,11 @@ def main(args, deadline=None):
     info = validate_manifest(json.loads(manifest.stdout))
     name, digest = info['name'], info['sha256']
     key = 'daily/' + name
-    existing = matching_object(args.bucket, key, digest, deadline)
+    existing = matching_object(args.bucket, key, digest, info['bytes'], deadline)
+    if not existing and info['bytes'] > MAX_NEW_UPLOAD_BYTES:
+        raise BackupError('BACKUP_NEW_UPLOAD_EXCEEDS_SINGLE_PUT_LIMIT')
+    checksum_bytes = (digest + '  ' + name + '\n').encode('ascii')
+    sidecar_exists = matching_sidecar(args.bucket, key + '.sha256', checksum_bytes, directory, deadline)
     if not existing:
         if shutil.disk_usage(directory).free < info['bytes'] + 1024 ** 3:
             raise RuntimeError('Runner has insufficient free disk for this encrypted backup')
@@ -108,14 +170,24 @@ def main(args, deadline=None):
                 calculated.update(chunk)
         if destination.stat().st_size != info['bytes'] or calculated.hexdigest() != digest:
             raise RuntimeError('Encrypted backup size/checksum mismatch; no upload performed')
-        command(['aws', 's3', 'cp', str(destination), 's3://' + args.bucket + '/' + key, '--sse', 'AES256', '--metadata', 'sha256=' + digest, '--only-show-errors'], deadline, 360, check=True)
-        if not matching_object(args.bucket, key, digest, deadline):
+        create_object(args.bucket, key, destination, digest, deadline, 360)
+        if not matching_object(args.bucket, key, digest, info['bytes'], deadline):
             raise RuntimeError('Uploaded backup metadata could not be verified')
-    checksum = directory / (name + '.sha256')
-    checksum.write_text(digest + '  ' + name + '\n')
-    command(['aws', 's3', 'cp', str(checksum), 's3://' + args.bucket + '/' + key + '.sha256', '--sse', 'AES256', '--only-show-errors'], deadline, 60, check=True)
+    if not sidecar_exists:
+        checksum = directory / (name + '.sha256')
+        with checksum.open('xb') as stream:
+            stream.write(checksum_bytes)
+        create_object(args.bucket, key + '.sha256', checksum,
+                      hashlib.sha256(checksum_bytes).hexdigest(), deadline, 60)
+        if not matching_sidecar(args.bucket, key + '.sha256', checksum_bytes, directory, deadline):
+            raise RuntimeError('Uploaded backup checksum could not be verified')
     deadline.remaining()
-    print(json.dumps({'status': 'already_off_host' if existing else 'uploaded', 'backup': name, 'archive_bytes_transferred': 0 if existing else info['bytes'], 'checksum_verified': True}))
+    print(json.dumps({'status': 'already_present' if existing else 'uploaded', 'backup': name,
+                      'snapshot_sha256': digest, 'archive_bytes_transferred': 0 if existing else info['bytes'],
+                      'local_ciphertext_sha256_verified': not existing,
+                      's3_sha256_validated_on_create': not existing,
+                      'remote_metadata_matches': True, 'checksum_sidecar_readback_verified': True,
+                      'off_host_ciphertext_readback_verified': False}))
 
 
 if __name__ == '__main__':
@@ -127,7 +199,9 @@ if __name__ == '__main__':
         main(parser.parse_args())
     except Exception as error:
         # Never echo remote output, environment credentials, or a subprocess traceback.
-        code = 'BACKUP_TRANSFER_TIMEOUT' if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)) else 'BACKUP_TRANSFER_FAILED'
+        code = (str(error) if isinstance(error, BackupError) else
+                'BACKUP_TRANSFER_TIMEOUT' if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)) else
+                'BACKUP_TRANSFER_FAILED')
         print(json.dumps({'ok': False, 'code': code, 'error_class': type(error).__name__,
                           'action': 'Check backup transfer and SSH cleanup status before retrying.'}))
         raise SystemExit(1)
