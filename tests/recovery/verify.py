@@ -240,6 +240,18 @@ def require_message(item, sender, *, text=None, data_json=None):
         require(item.get('data_json') == data_json, 'JSON_CONTENT_MISMATCH')
 
 
+def require_encrypted_attachment(item):
+    # Full inbox results deliberately redact media keys. The private native
+    # event retains the descriptor used by the explicit cache-disabled download.
+    content = item.get('content', {})
+    media = content.get('file')
+    require(content.get('msgtype') == 'm.file' and 'url' not in content and
+            isinstance(media, dict) and set(media) == {'url', 'encrypted'} and
+            media.get('encrypted') is True and isinstance(media.get('url'), str) and
+            re.fullmatch(r'mxc://localhost/[A-Za-z0-9_-]+', media['url']) is not None,
+            'REDACTED_ENCRYPTED_ATTACHMENT_REQUIRED')
+
+
 def event_id(result):
     value = result.get('event_id')
     require(isinstance(value, str) and value.startswith('$'), 'ACCEPTED_EVENT_ID_REQUIRED')
@@ -262,6 +274,7 @@ def public_evidence(state, phase):
             historical_recipient_cache_empty_before_first_restore_sync=True,
             original_user_and_device_ids_preserved=True,
             historical_text_and_exact_json_decrypted=True, encrypted_attachment_download_hash_matched=True,
+            encrypted_attachment_inbox_keys_redacted=True,
             new_e2ee_roundtrip_events=state['new_events'],
             verification_seconds=state['verification_seconds'])
     return result
@@ -359,9 +372,7 @@ class Fixture:
             require_message(await find_event(b, state['room_id'], state['historical_events']['json']), sender, data_json=state['data_json'])
             old_file = await find_event(b, state['room_id'], state['historical_events']['file'])
             require_message(old_file, sender)
-            content = old_file.get('content', {})
-            require(isinstance(content.get('file'), dict) and content['file'].get('v') == 'v2' and 'url' not in content,
-                    'ENCRYPTED_ATTACHMENT_DESCRIPTOR_REQUIRED')
+            require_encrypted_attachment(old_file)
             # Always a new path. A resumed verification cannot pass by reusing a
             # previously downloaded plaintext file. SDK media caching is disabled.
             output = self.base / ('restored-' + secrets.token_hex(6) + '.bin')
@@ -421,7 +432,7 @@ async def execute(args):
     attempt = {'schema': SCHEMA, 'phase': args.phase if args.phase in {'prepare', 'verify'} else 'unknown',
         'run_id': args.run_id if isinstance(args.run_id, str) and RUN_ID.fullmatch(args.run_id) else None,
         'requested_revision': args.revision if isinstance(args.revision, str) and re.fullmatch(r'[0-9a-f]{40}', args.revision) else None,
-        'started_at': utc_now()}
+        'started_at': utc_now(), 'driver_sha256': sha256(Path(__file__))}
     try:
         return await execute_phase(args, attempt)
     except Exception as error:
@@ -449,6 +460,7 @@ async def execute_phase(args, attempt):
             result = await fixture.prepare(target, args.run_id)
         else:
             result = await fixture.verify(target, state)
+        result['driver_sha256'] = attempt['driver_sha256']
         atomic_json(EVIDENCE / (args.run_id + '-' + args.phase + '.json'), result, private=False)
         return result
 

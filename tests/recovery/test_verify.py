@@ -36,6 +36,22 @@ def target(phase='prepare'):
 
 
 class GuardTests(unittest.TestCase):
+    def test_attachment_requires_redacted_encrypted_media_and_refuses_plaintext_or_keys(self):
+        media = {'url': 'mxc://localhost/synthetic-file', 'encrypted': True}
+        content = {'msgtype': 'm.file', 'file': media}
+        verify.require_encrypted_attachment({'content': content})
+        invalid = [content | {'url': media['url']}, content | {'msgtype': 'm.text'},
+                   {'msgtype': 'm.file', 'url': media['url']}]
+        invalid += [content | {'file': value} for value in [
+            None, {}, media | {'encrypted': False}, media | {'encrypted': 1},
+            media | {'key': 'synthetic-secret'}, media | {'v': 'v2'},
+            {'url': media['url'], 'v': 'v2', 'key': 'synthetic-secret'},
+            media | {'url': 'https://example.invalid/file'}, media | {'url': 'mxc://localhost/'},
+            media | {'url': 'mxc://other.invalid/file'}]]
+        for value in invalid:
+            with self.subTest(content=value), self.assertRaisesRegex(ValueError, 'REDACTED_ENCRYPTED_ATTACHMENT_REQUIRED'):
+                verify.require_encrypted_attachment({'content': value})
+
     def test_exact_private_origin_project_and_fresh_attestation_required(self):
         verify.validate_target(target(), 'prepare', REVISION, BINARY_HASH, now=NOW)
         changes = [{'origin': value} for value in ['https://zavliq.com', 'http://localhost:8008',
@@ -212,7 +228,8 @@ class FakeClient:
             return {'items': items, 'has_more': False, 'next_cursor': len(items)}
         if method == 'upload':
             self.server.payload = Path(params['path']).read_bytes()
-            return self.server.put(self, params['idempotency_key'], {'file': {'v': 'v2', 'key': 'synthetic-secret-file-key'}})
+            return self.server.put(self, params['idempotency_key'], {'msgtype': 'm.file',
+                'file': {'url': 'mxc://localhost/synthetic-file', 'encrypted': True}})
         if method == 'download':
             self.server.downloads.append(params['path'])
             with Path(params['path']).open('xb') as stream: stream.write(self.server.payload)
