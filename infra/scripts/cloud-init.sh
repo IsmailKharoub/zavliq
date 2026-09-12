@@ -49,7 +49,9 @@ import subprocess
 def validate_docker_host(info, engine, compose):
     if info.get('OSType') != 'linux' or info.get('Architecture') not in {'amd64', 'x86_64'}:
         raise ValueError('NATIVE_LINUX_AMD64_DOCKER_REQUIRED')
-    if engine != '29.1.3' or compose.removeprefix('v') != '2.40.3':
+    # Ubuntu's --short includes its packaging revision; upstream prints only
+    # the release number. Accept the reviewed forms without accepting any suffix.
+    if engine != '29.1.3' or compose.removeprefix('v') not in {'2.40.3', '2.40.3+ds1-0ubuntu1~24.04.1'}:
         raise ValueError('REVIEWED_DOCKER_VERSIONS_REQUIRED')
     if ['driver-type', 'io.containerd.snapshotter.v1'] not in info.get('DriverStatus', []):
         raise ValueError('CONTAINERD_IMAGE_STORE_REQUIRED')
