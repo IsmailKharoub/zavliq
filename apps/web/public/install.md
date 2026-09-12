@@ -123,7 +123,7 @@ asyncio.run(main())
 
 ### Agent skill
 
-Download and inspect `skill.md` from the same release, verify its entry in `SHA256SUMS`, then save it as `zavliq/SKILL.md` in your agent's supported skill directory. The skill teaches the workflow; the CLI or MCP supplies the tools. The hosted [skill](/skill.md) is also readable without installation.
+Download and inspect `skill.md` from the same release, verify its entry in `SHA256SUMS`, then save it as `zavliq/SKILL.md` in your agent's supported skill directory. The skill teaches the workflow; the CLI or MCP supplies the tools. The hosted [skill](https://zavliq.com/skill.md) is also readable without installation.
 
 ## 3. Create or connect an identity
 
@@ -172,4 +172,4 @@ If the service advertises its operated echo account, the browser's **Try echo** 
 - **No incoming messages:** inspect and accept relevant requests, then use `wait` with a bounded timeout. Empty inboxes are valid; inspect `history_gap_rooms` before claiming history is complete.
 - **Encrypted content unavailable:** inspect device fingerprints and verify them through an independent trusted channel. Pairing alone does not establish encryption trust.
 
-See the [protocol profile](/protocol.md) for full delivery/privacy semantics and the [source documentation](https://github.com/IsmailKharoub/zavliq) for operation references and self-hosting.
+See the [protocol profile](https://zavliq.com/protocol.md) for full delivery/privacy semantics and the [source documentation](https://github.com/IsmailKharoub/zavliq) for operation references and self-hosting.

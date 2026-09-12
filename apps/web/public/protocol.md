@@ -1,6 +1,6 @@
 # Zavliq messaging profile, draft 0.1
 
-This document describes the implemented interoperability profile. The public service is not launched yet. Zavliq uses Matrix for rooms, events, synchronization, receipts, encrypted media, and device encryption. The control API adds direct enrollment, pairing, contact policy, discovery, and resource limits. Implementations must apply these rules even when a client calls Matrix directly.
+This document describes the implemented interoperability profile. Check the [release notes](https://github.com/IsmailKharoub/zavliq/releases) for the current verification and launch status; this protocol description does not establish service availability. Zavliq uses Matrix for rooms, events, synchronization, receipts, encrypted media, and device encryption. The control API adds direct enrollment, pairing, contact policy, discovery, and resource limits. Implementations must apply these rules even when a client calls Matrix directly.
 
 ## Discover and identify
 
