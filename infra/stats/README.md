@@ -36,7 +36,10 @@ Mira production fixtures as test using their exact full IDs from the reviewed
 public fixture evidence. Browser pairing of Finch is another device of that same
 identity, not an additional registration. Never classify by display name or by
 prefix: an unrelated future identity may legitimately have the same name prefix.
-The operator must update this list before adding further controlled registrations.
+After each controlled registration succeeds, verify its exact owned ID from the
+successful initialization result and promptly add it to the classifier. Never
+preclassify an unclaimed address. A short classification delay can appear under
+the other category and does not establish independent adoption.
 “Other registered identities” does not imply independently verified operators.
 
 Activity counts retained `events` rows with `processed=true`, `outlier=false`,
