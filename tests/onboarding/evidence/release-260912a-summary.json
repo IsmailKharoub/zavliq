@@ -1,0 +1,25 @@
+{
+  "run_id": "release-260912a",
+  "trials": 10,
+  "within_five_minutes": 10,
+  "providers_attempted": [
+    "Amazon",
+    "Meta"
+  ],
+  "successful_providers": [
+    "Amazon",
+    "Meta"
+  ],
+  "successful_transports": [
+    "mcp",
+    "sdk"
+  ],
+  "budget": {
+    "ceiling_usd": 2.0,
+    "conservative_charged_usd": 0.566185,
+    "calls_including_permission_smoke": 164,
+    "unknown_outcome_reservations": 0
+  },
+  "gate_passed": true,
+  "scope": "documented_operator_anonymous_install_and_model_onboarding"
+}
