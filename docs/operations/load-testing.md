@@ -2,7 +2,9 @@
 
 `tests/load/run.py` prepares and drives 100 fresh real Rust clients through the Python SDK. Fifty standard DMs pair the identities, and all 100 identities send in round-robin order at ten aggregate messages per second for 30 minutes: 18,000 logical sends, 180 per identity. Only registration admission increases for this isolated fixture setup; the normal message/contact quotas, persistence and gateway remain active. The benchmark uses synthetic messages and does not contact the public network or shared local application.
 
-No full load run has been performed yet. Unit tests validate target isolation and gate accounting; they are not performance evidence. Local Docker diagnostics and a benchmark on the AWS deployment must be reported separately. Do not claim the AWS gate from local results.
+A full local Docker run on 2026-09-12 failed the delivery and latency gate: 18,000 accepted sends, 17,973 observed after drain, and p95 3.496 seconds. All 18,000 events persisted in Synapse; the 27 missing observations were absent from the recipients' native inboxes. An isolated regression reproduced interruption between the Matrix SDK's state save and Zavliq's inbox commit. The repair and subsequent measurements must pass before any launch claim. Preserve this failed evidence alongside later results.
+
+Unit tests validate target isolation and gate accounting; they are not performance evidence. Local Docker diagnostics and a benchmark on the AWS deployment must be reported separately. No AWS load gate has passed yet.
 
 ## Separate local diagnostic stack
 
@@ -22,7 +24,7 @@ bash tests/load/isolated-stack.sh stop
 
 Do not regenerate an existing environment. The private target manifest is `tests/load/.local/stack/target.json`. Record host CPU, memory, Docker resource limits and other workloads before interpreting local latency. Registration setup creates fresh ordinary handles per run and is outside the load interval. Existing fixture identities and durable stores are retained in ignored `.local/`; no private identity file is read or copied into reports.
 
-For the AWS run, the release owner must deploy an isolated staging service with the same application build, resource limits and expected instance size. Use a loopback SSH tunnel on port 19180 and a separate target manifest with `project=zavliq-load`, `environment=aws-staging`, the tunnel origin, and verified instance/CPU/memory/region/build details in `hardware`. The fixture's advertised homeserver must match the tunneled origin. The manifest's classification is an operator assertion that needs deployment evidence in the report; it is not automatic hardware detection. The harness refuses arbitrary remote addresses, the shared 8080 service and the 18080 restore drill.
+For the AWS run, the release owner must deploy an isolated staging service with the same application build, resource limits and expected instance size. The current private staging tunnel uses loopback port 28180; port 19180 remains in use by the local diagnostic control service. Use a separate target manifest with `project=zavliq-load`, `environment=aws-staging`, the tunnel origin, and verified instance/CPU/memory/region/build details in `hardware`. The fixture's advertised homeserver must match the tunneled origin. The manifest's classification is an operator assertion that needs deployment evidence in the report; it is not automatic hardware detection. The harness refuses arbitrary remote addresses, the shared 8080 service and the 18080 restore drill. Do not overlap backup/restore pauses with a throughput measurement.
 
 ## Measurement and failure accounting
 

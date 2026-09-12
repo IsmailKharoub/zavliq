@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from synapse.module_api import NOT_SPAM
 from synapse.module_api.errors import Codes, SynapseError
 from synapse.events import make_event_from_dict
+from synapse.module_api.callbacks.spamchecker_callbacks import SpamCheckerModuleApiCallbacks
 from zavliq_policy import ZavliqPolicy, CONVERSATION, ENCRYPTION, ALGORITHM, RECEIPT
 from zavliq_policy.store import PolicyStore
 from zavliq_policy.resource import PolicyResource
@@ -170,12 +171,30 @@ class PolicyTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await self.policy.check_visibility('!new:test.local',{},'public'))
         self.assertFalse(await self.policy.check_visibility('!private:test.local',state(),'public'))
     async def test_events_size_receipts_and_custom_types_cannot_evade_quota(self):
-        self.assertEqual(await self.policy.check_event_for_spam(Event('m.room.message',{'body':'x'*32769})),Codes.TOO_LARGE)
+        self.assertEqual((await self.policy.check_event_for_spam(Event('m.room.message',{'body':'x'*32769})))[0],Codes.TOO_LARGE)
         self.assertEqual(await self.policy.check_event_for_spam(Event('arbitrary.unmetered',{'body':'hello'})),Codes.FORBIDDEN)
         self.assertEqual(await self.policy.check_event_for_spam(Event('arbitrary.state',{'body':'hello'},state_key='')),Codes.FORBIDDEN)
         self.assertEqual(await self.policy.check_event_for_spam(Event(RECEIPT,{'event_id':'$one','status':'delivered'},event_id='$receipt')),NOT_SPAM)
         self.assertEqual(self.policy.store.usage('@alice:test.local')['messages_per_day']['used'],0)
         self.assertEqual(await self.policy.check_event_for_spam(Event(RECEIPT,{'event_id':'$one','status':'delivered','body':'smuggled'},event_id='$bad')),Codes.BAD_JSON)
+    async def test_size_refusal_preserves_synapse_code_and_returns_actionable_client_text(self):
+        callbacks=SpamCheckerModuleApiCallbacks(SimpleNamespace(hostname='test.local',get_clock=lambda:SimpleNamespace(time=lambda:0.)))
+        callbacks._check_event_for_spam_callbacks.append(self.policy.check_event_for_spam)
+        # The serialized {"body":""} envelope is 11 bytes: the existing boundary
+        # remains inclusive, while both plaintext and ciphertext count toward it.
+        boundary=Event('m.room.message',{'body':'x'*(32768-11)},event_id='$boundary')
+        self.assertEqual(await callbacks.check_event_for_spam(boundary),NOT_SPAM)
+        for typ,content in [('m.room.message',{'body':'x'*(32768-10)}),
+                            ('m.room.encrypted',{'algorithm':ALGORITHM,'ciphertext':'x'*32768})]:
+            code,fields=await callbacks.check_event_for_spam(Event(typ,content))
+            error=SynapseError(403,'This message has been rejected as probable spam',code,fields)
+            response=error.error_dict(None)
+            self.assertEqual(error.code,403)
+            self.assertEqual(response['errcode'],Codes.TOO_LARGE)
+            self.assertEqual(response['limit_bytes'],32768)
+            self.assertIn('shorten it or send a file',response['error'])
+            self.assertNotIn('spam',response['error'])
+        self.assertEqual(self.policy.store.usage('@alice:test.local')['messages_per_day']['used'],1)
     async def test_native_synapse_rust_json_content_is_supported(self):
         event=make_event_from_dict({'type':'m.room.message','room_id':'!x:test.local','sender':'@alice:test.local','event_id':'$native','origin':'test.local','origin_server_ts':1,'auth_events':[],'prev_events':[],'depth':1,'hashes':{'sha256':'test'},'signatures':{},'content':{'msgtype':'m.text','body':'native event','com.zavliq.data':{'nested':['supported']}}})
         self.assertEqual(await self.policy.check_event_for_spam(event),NOT_SPAM)

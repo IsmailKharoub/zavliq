@@ -198,7 +198,7 @@ class ZavliqPolicy:
         if not self.local(event.sender):
             return Codes.FORBIDDEN
         if len(encode_canonical_json(event.content))>32768:
-            return Codes.TOO_LARGE
+            return Codes.TOO_LARGE, {'error':'Message exceeds the service size limit; shorten it or send a file.','limit_bytes':32768}
         if event.is_state():
             if event.type not in ('m.room.create','m.room.member','m.room.power_levels','m.room.join_rules','m.room.history_visibility','m.room.guest_access','m.room.name','m.room.topic','m.room.avatar','m.room.canonical_alias',CONVERSATION,ENCRYPTION,'m.room.server_acl','m.room.pinned_events'):
                 return Codes.FORBIDDEN

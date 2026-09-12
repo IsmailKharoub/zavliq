@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import sys
 import time
 from urllib.parse import urlsplit
@@ -69,6 +70,11 @@ async def run(args) -> dict:
     # Bound local generator threads; no server configuration is changed.
     os.environ['TOKIO_WORKER_THREADS'] = '2'
     target = target_config(args.target)
+    binary_path = shutil.which(args.binary)
+    if not binary_path:
+        raise ValueError('The selected native executable is unavailable.')
+    with open(binary_path, 'rb') as executable:
+        binary_sha256 = hashlib.file_digest(executable, 'sha256').hexdigest()
     if args.clients % 2 or not 2 <= args.clients <= 100 or not 1 <= args.rate <= 10 or not 1 <= args.duration <= 1800:
         raise ValueError('Use2..100 even clients,1..10 messages/second and1..1800 seconds.')
     if args.rate * 60 / args.clients > 24:
@@ -223,7 +229,7 @@ async def run(args) -> dict:
                 if current.get('membership') != 'joined' or current.get('joined_member_count') != 2 or current.get('encryption') != 'standard' or current.get('kind') != 'dm':
                     raise ValueError('FIXTURE_MEMBERSHIP_INCOMPLETE')
         if args.prepare_only:
-            result = {'run_id': identifier, 'fixture_id': fixture_id, 'status': 'fixtures_prepared', 'clients': args.clients, 'environment': target['environment'], 'measured': False}
+            result = {'run_id': identifier, 'fixture_id': fixture_id, 'status': 'fixtures_prepared', 'clients': args.clients, 'environment': target['environment'], 'native_binary_sha256': binary_sha256, 'measured': False}
             print(json.dumps(result), flush=True)
             return result
         for client in clients:
@@ -263,13 +269,14 @@ async def run(args) -> dict:
         result = {'run_id': identifier, 'fixture_id': fixture_id, 'environment': target['environment'], 'hardware': target['hardware'], 'clients': args.clients, 'duration_seconds': args.duration, 'target_messages_per_second': args.rate, 'planned_messages': planned, 'accepted_messages': len(accepted), 'observed_acknowledged_messages': matched, 'missing_acknowledged_messages': len(accepted) - matched, 'duplicate_sequences': len(duplicate_sequences), 'failures': failures, **state, 'send_acknowledgement_latency': metric(ack_latencies), 'end_to_end_latency': latency, 'elapsed_including_drain_seconds': round(time.monotonic() - started, 3)}
         result['checks'] = evaluate(clients=args.clients, duration=args.duration, rate=args.rate, planned=planned, accepted=len(accepted), observed=matched, missed_slots=state['missed_slots'], failed=len(failures), duplicates=len(duplicate_sequences), latency=latency, environment=target['environment'])
         result['generator'] = {'tokio_workers_per_runtime': 2, 'setup_concurrency': 2, 'process_start_spacing_seconds': .5, 'store_and_sync_warmup_before_timer': True, 'setup_timeout_seconds': 90, 'measurement_rpc_timeout_seconds': 30}
+        result['native_binary_sha256'] = binary_sha256
         evidence = ROOT / 'tests/load/evidence'
         evidence.mkdir(exist_ok=True)
         (evidence / f'{identifier}.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result), flush=True)
         return result
     except Exception as error:
-        result = {'run_id': identifier, 'environment': target['environment'], 'status': 'failed', 'stage': 'measurement' if started else 'fixture_setup', 'error_code': getattr(error, 'code', type(error).__name__), 'accepted_messages': len(accepted), 'observed_messages': len(observed), 'aws_staging_gate_passed': False}
+        result = {'run_id': identifier, 'environment': target['environment'], 'status': 'failed', 'stage': 'measurement' if started else 'fixture_setup', 'error_code': getattr(error, 'code', type(error).__name__), 'accepted_messages': len(accepted), 'observed_messages': len(observed), 'native_binary_sha256': binary_sha256, 'aws_staging_gate_passed': False}
         if isinstance(error, ReceiverStopped):
             result.update(receiver_index=error.receiver_index, receiver_error_class=error.reason)
         evidence = ROOT / 'tests/load/evidence'

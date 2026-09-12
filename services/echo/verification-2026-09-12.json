@@ -1,0 +1,64 @@
+{
+  "project": "zavliq-echo-check",
+  "origin": "http://localhost:19280",
+  "bootstrap_repeated_same_device": true,
+  "private_identity_mode_0600": true,
+  "fixed_reserved_account": true,
+  "public_reserved_signup_refused": true,
+  "non_admin": true,
+  "devices_after_bootstrap": 1,
+  "bootstrap_refuses_active_native_writer": true,
+  "identity_unchanged_after_native_start": true,
+  "native_crypto_store_created": true,
+  "runtime_uid": 1000,
+  "supervisor_health_ready": true,
+  "backup": {
+    "operation": "backup",
+    "ok": true,
+    "writer_pause_seconds": 2.216,
+    "elapsed_seconds": 2.356,
+    "encrypted_bytes": 4230344
+  },
+  "restore_services_healthy": true,
+  "restored_echo_initially_disabled": true,
+  "restored_identity_bytes_identical": true,
+  "restored_deduplication_journal": true,
+  "restored_crypto_store_exists": true,
+  "restored_bootstrap_same_device": true,
+  "verified_at": "2026-09-12T02:34:25.770109+00:00",
+  "environment": "isolated-local-docker",
+  "production_or_aws_verified": false,
+  "loopback_namespace_override": true,
+  "standard_text_exact_json_reply": true,
+  "e2ee_and_group_invitations_unaccepted": true,
+  "no_duplicate_reply_after_extra_cycles": true,
+  "restored_service_health_ready": true,
+  "restored_service_roundtrip_passed": true,
+  "restored_service_refusal_passed": true,
+  "restore_elapsed_seconds": 30.432,
+  "local_fixtures_stopped": true,
+  "measured_load_stack_modified": false,
+  "tested_images": {
+    "synapse": {
+      "id": "sha256:59383730abcdd72b42ceb739ac5472d80892e925a7482b7f0a8fbdcc2e6bad8a",
+      "architecture": "arm64"
+    },
+    "control": {
+      "id": "sha256:abf277eaf059dbc4299134bdcb2246c7d02a96e5f5f76cd75ee0c624997b42be",
+      "architecture": "arm64"
+    },
+    "web": {
+      "id": "sha256:9ffb79454e282d30531ab2d77a41e814d5dfb4c79294f3aa708076e1fff42131",
+      "architecture": "arm64"
+    },
+    "echo": {
+      "id": "sha256:a2d179fdca9c64869ef59368fdc48d83378322129483f8f74ecd27723a9192d8",
+      "architecture": "arm64"
+    }
+  },
+  "limitations": [
+    "The test used a local-only gateway network namespace for HTTP loopback; production HTTPS routing and AWS execution remain unverified.",
+    "Backup and restore used separate fresh local Docker projects, not measured-load or shared application stores.",
+    "This focused round trip does not establish the performance, scalability or 24-hour soak gates."
+  ]
+}
