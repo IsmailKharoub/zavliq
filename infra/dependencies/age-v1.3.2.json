@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "name": "age",
+  "version": "v1.3.2",
+  "source_tag_commit": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+  "release_id": 379059621,
+  "release_published_at": "2026-08-29T17:55:36Z",
+  "release_api_immutable": false,
+  "verified_at": "2026-09-12T21:31:10.826633Z",
+  "official_sources": {
+    "release": "https://github.com/FiloSottile/age/releases/tag/v1.3.2",
+    "release_api": "https://api.github.com/repos/FiloSottile/age/releases/tags/v1.3.2",
+    "source_tag_api": "https://api.github.com/repos/FiloSottile/age/git/ref/tags/v1.3.2",
+    "source_commit": "https://github.com/FiloSottile/age/tree/b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+    "verification_instructions": "https://github.com/FiloSottile/age/blob/b74dce4cdbe35b5e5f66c06d9612b72f89028758/SIGSUM.md"
+  },
+  "verification": {
+    "archives_downloaded_from_official_release": true,
+    "archive_sizes_and_sha256_matched_release_api": true,
+    "executable_member_bytes_and_sha256_independently_computed": true,
+    "sigsum_signature_and_log_proof_verified": false,
+    "provenance_limitation": "The upstream release API reports immutable=false. Versioned URLs and release tags are not immutable guarantees. These committed SHA256 values pin the reviewed bytes; asset IDs identify the observed assets. Matching GitHub asset digests does not independently verify publisher signatures or reproducible builds. Sigsum proofs were not cryptographically verified."
+  },
+  "platforms": {
+    "linux-amd64": {
+      "asset_id": 535541903,
+      "asset_api_url": "https://api.github.com/repos/FiloSottile/age/releases/assets/535541903",
+      "download_url": "https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz",
+      "archive_name": "age-v1.3.2-linux-amd64.tar.gz",
+      "archive_bytes": 19405817,
+      "archive_sha256": "cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10",
+      "executables": {
+        "age/age-keygen": {
+          "type": "regular_file",
+          "bytes": 4051278,
+          "sha256": "0a0009db842259d6717f7eeb30acb6b90d2a2eb924c6acd0a0db0ca1f1537899"
+        },
+        "age/age": {
+          "type": "regular_file",
+          "bytes": 6977014,
+          "sha256": "eb7dd1b518f0a307c99cd97782623c5321da049154b04acd2d98d21aa7bc9b2c"
+        }
+      }
+    },
+    "darwin-arm64": {
+      "asset_id": 535541897,
+      "asset_api_url": "https://api.github.com/repos/FiloSottile/age/releases/assets/535541897",
+      "download_url": "https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-darwin-arm64.tar.gz",
+      "archive_name": "age-v1.3.2-darwin-arm64.tar.gz",
+      "archive_bytes": 18106798,
+      "archive_sha256": "e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5",
+      "executables": {
+        "age/age": {
+          "type": "regular_file",
+          "bytes": 6502258,
+          "sha256": "4012dfc2725883beafb710894af4f599b7a94f8c8e0f51f02cc96ab8df33915e"
+        },
+        "age/age-keygen": {
+          "type": "regular_file",
+          "bytes": 3806562,
+          "sha256": "c16e229245123d0ad27442317461d63915416cad0294395cd19ca93feb3211ea"
+        }
+      }
+    }
+  }
+}
