@@ -35,5 +35,6 @@ export async function encryptAccountBackup(
   };
   const encrypter = new Encrypter();
   encrypter.setPassphrase(password);
+  encrypter.setScryptWorkFactor(18);
   return encrypter.encrypt(JSON.stringify(bundle));
 }

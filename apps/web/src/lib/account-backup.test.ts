@@ -39,6 +39,7 @@ it("exports the native recovery schema with age and standard Matrix room keys", 
     expect(new TextDecoder().decode(ciphertext)).not.toContain(
       "registration_secret",
     );
+    expect(new TextDecoder().decode(ciphertext).split("\n")[1]).toMatch(/^-> scrypt \S+ 18$/);
     const decrypt = new Decrypter();
     decrypt.addPassphrase(password);
     const bundle = JSON.parse(await decrypt.decrypt(ciphertext, "text"));

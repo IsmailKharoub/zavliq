@@ -69,8 +69,9 @@ function roomPreview(room: Room, blocked: string[]): string {
         ["m.room.message", "m.room.encrypted"].includes(e.getType()),
     )
     .at(-1);
+  const body = event?.getContent().body;
   return (
-    event?.getContent().body ||
+    (typeof body === "string" ? body : "") ||
     (event
       ? "Encrypted message"
       : room.getMyMembership() === "invite"
@@ -107,10 +108,12 @@ export function Console({
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [create, setCreate] = useState(false);
+  const [createEcho, setCreateEcho] = useState(false);
   const [browseChannels, setBrowseChannels] = useState(false);
   const [settings, setSettings] = useState(false);
   const [tick, setTick] = useState(0);
   const [blocked, setBlocked] = useState<string[]>([]);
+  const echoAddress = import.meta.env.VITE_ECHO_USER_ID as string | undefined;
   useEffect(() => {
     if (!session) return;
     api<{ blocked_user_ids: string[] }>(
@@ -431,6 +434,15 @@ export function Console({
             <button className="button primary" onClick={() => setCreate(true)}>
               Start a conversation <Plus size={17} />
             </button>
+            {echoAddress && /^@echo:[^\s]+$/.test(echoAddress) && (
+              <button className="button secondary" disabled={!client} onClick={() => {
+                const existing = rooms.find((room) => roomKind(room) === "dm" && !isEncrypted(room)
+                  && room.getMyMembership() === "join" && ["join", "invite"].includes(room.getMember(echoAddress)?.membership || ""));
+                if (existing) { setSelected(existing.roomId); return; }
+                setCreateEcho(true);
+                setCreate(true);
+              }}>Try Echo <MessageSquare size={17} /></button>
+            )}
             <button
               className="address-copy"
               onClick={() =>
@@ -466,10 +478,12 @@ export function Console({
       {create && client && (
         <CreateConversation
           client={client}
-          onClose={() => setCreate(false)}
+          initialAddress={createEcho ? echoAddress : undefined}
+          onClose={() => { setCreate(false); setCreateEcho(false); }}
           onCreated={(id) => {
             setSelected(id);
             setCreate(false);
+            setCreateEcho(false);
             setFilter("all");
           }}
         />
@@ -630,16 +644,18 @@ function ArrowUpIcon() {
 }
 function CreateConversation({
   client,
+  initialAddress,
   onClose,
   onCreated,
 }: {
   client: MatrixClient;
+  initialAddress?: string;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
   const [kind, setKind] = useState<Kind>("dm");
   const [name, setName] = useState("");
-  const [members, setMembers] = useState("");
+  const [members, setMembers] = useState(initialAddress || "");
   const [encrypted, setEncrypted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -711,6 +727,7 @@ function CreateConversation({
       }}
     >
       <p className="eyebrow">MAKE A CONNECTION</p>
+      {initialAddress && <p>Echo is Zavliq’s operated demo agent. Send text or JSON in a standard direct message and it returns your payload. It does not process files or encrypted messages.</p>}
 
       <div className="choice-tabs">
         {(["dm", "group", "channel"] as Kind[]).map((k) => (
@@ -906,7 +923,7 @@ function Chat({
         client.getUserId()!,
         client.getDeviceId()!,
         room.roomId,
-        { body, reply_id: existing?.reply_id || reply?.getId(), content },
+        { body, reply_id: existing ? existing.reply_id : reply?.getId(), content },
         (pending) => sendPending(client, room.roomId, pending),
       );
       setBody("");
@@ -1123,7 +1140,7 @@ function Chat({
               <div className="reply-preview">
                 <span>
                   Replying to {reply.getSender()?.split(":")[0]}
-                  <small>{reply.getContent().body || "Message"}</small>
+                  <small>{typeof reply.getContent().body === "string" ? reply.getContent().body : "Message"}</small>
                 </span>
                 <button
                   type="button"
@@ -1231,6 +1248,7 @@ function Message({
   room: Room;
 }) {
   const content = event.getContent();
+  const textBody = typeof content.body === "string" ? content.body : "";
   const undecrypted = event.getType() === "m.room.encrypted";
   let data = content["com.zavliq.data"];
   try {
@@ -1276,7 +1294,7 @@ function Message({
         ) : content.msgtype === "m.file" || content.msgtype === "m.image" ? (
           <span className="file-message">
             <File size={20} />
-            {content.body}
+            {textBody || "Attachment"}
             <button className="text-link" onClick={onDownload}>
               <Download size={15} />
               Download file
@@ -1284,7 +1302,7 @@ function Message({
           </span>
         ) : (
           <>
-            {content.body && <p>{content.body}</p>}
+            {textBody && <p>{textBody}</p>}
             {data !== undefined && (
               <pre className="structured-message">
                 {typeof content["com.zavliq.data_json"] === "string"
@@ -1292,7 +1310,7 @@ function Message({
                   : JSON.stringify(data, null, 2)}
               </pre>
             )}
-            {!content.body && data === undefined && (
+            {!textBody && data === undefined && (
               <p>{JSON.stringify(content)}</p>
             )}
           </>
@@ -1304,8 +1322,8 @@ function Message({
         {mine && (
           <span>
             {event.status === "not_sent" ? (
-              "Not sent — retry from client"
-            ) : event.status ? (
+              "Not sent · retry the saved draft"
+            ) : event.status && event.status !== "sent" ? (
               "Sending…"
             ) : (
               <>

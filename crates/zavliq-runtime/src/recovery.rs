@@ -1,12 +1,18 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::io::{Read, Write};
 
 // age is the maintained interoperable encryption format; this module defines
 // no encryption primitive or unauthenticated bespoke envelope.
+// Match the browser age implementation. A fixed bound avoids host-calibrated
+// import failures and caps scrypt's main allocation at approximately 256 MiB.
+const SCRYPT_WORK_FACTOR: u8 = 18;
+
 pub fn encrypt(bytes: &[u8], passphrase: &str) -> Result<Vec<u8>> {
-    let encryptor = age::Encryptor::with_user_passphrase(age::secrecy::SecretString::from(
-        passphrase.to_owned(),
-    ));
+    let mut recipient =
+        age::scrypt::Recipient::new(age::secrecy::SecretString::from(passphrase.to_owned()));
+    recipient.set_work_factor(SCRYPT_WORK_FACTOR);
+    let encryptor =
+        age::Encryptor::with_recipients(std::iter::once(&recipient as &dyn age::Recipient))?;
     let mut encrypted = Vec::new();
     let mut writer = encryptor.wrap_output(&mut encrypted)?;
     writer.write_all(bytes)?;
@@ -16,11 +22,19 @@ pub fn encrypt(bytes: &[u8], passphrase: &str) -> Result<Vec<u8>> {
 pub fn decrypt(bytes: &[u8], passphrase: &str) -> Result<Vec<u8>> {
     let decryptor = age::Decryptor::new(bytes)
         .context("INVALID_RECOVERY: expected an age-encrypted Zavliq bundle")?;
-    let identity =
+    let mut identity =
         age::scrypt::Identity::new(age::secrecy::SecretString::from(passphrase.to_owned()));
+    identity.set_max_work_factor(SCRYPT_WORK_FACTOR);
     let mut reader = decryptor
         .decrypt(std::iter::once(&identity as &dyn age::Identity))
-        .context("RECOVERY_DECRYPTION_FAILED: incorrect passphrase or corrupted bundle")?;
+        .map_err(|error| match error {
+            age::DecryptError::ExcessiveWork { required, .. } => anyhow!(
+                "RECOVERY_WORK_FACTOR_UNSUPPORTED: bundle uses scrypt logN={required}; Zavliq supports at most {SCRYPT_WORK_FACTOR}. Re-export with a compatible Zavliq client; do not retry this file unchanged."
+            ),
+            other => anyhow!(other).context(
+                "RECOVERY_DECRYPTION_FAILED: incorrect passphrase or corrupted bundle",
+            ),
+        })?;
     let mut plaintext = Vec::new();
     reader
         .read_to_end(&mut plaintext)
@@ -35,11 +49,30 @@ mod tests {
         let secret = b"account credentials and room keys";
         let encrypted = encrypt(secret, "long test passphrase 123").unwrap();
         assert!(!encrypted.windows(secret.len()).any(|v| v == secret));
+        let header = std::str::from_utf8(encrypted.split(|&b| b == b'\n').nth(1).unwrap()).unwrap();
+        assert_eq!(header.split_whitespace().last(), Some("18"));
         assert_eq!(
             decrypt(&encrypted, "long test passphrase 123").unwrap(),
             secret
         );
         assert!(decrypt(&encrypted, "wrong test passphrase 456").is_err());
+    }
+    #[test]
+    fn recovery_rejects_excessive_work_before_derivation() {
+        let encrypted = include_bytes!("../../../apps/web/fixtures/recovery-interoperability.age");
+        let boundary = encrypted
+            .windows(4)
+            .position(|part| part == b" 18\n")
+            .unwrap();
+        let mut excessive = encrypted.to_vec();
+        excessive[boundary + 2] = b'9';
+        let error = decrypt(&excessive, "public interoperability fixture password").unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .starts_with("RECOVERY_WORK_FACTOR_UNSUPPORTED:")
+        );
+        assert!(error.to_string().contains("logN=19"));
     }
     #[test]
     fn browser_age_export_contains_interoperable_matrix_room_keys() {

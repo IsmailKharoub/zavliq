@@ -109,15 +109,30 @@ export default function App() {
   const { path, navigate } = usePath();
   const [mobile, setMobile] = useState(false);
   const [session, setSession] = useState<Session>();
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [sessionError, setSessionError] = useState("");
+  const [sessionAttempt, setSessionAttempt] = useState(0);
   useEffect(() => {
+    let live = true;
+    setSessionLoading(true);
+    setSessionError("");
     loadReadySession()
-      .then(setSession)
-      .catch(() => {});
-  }, []);
+      .then((saved) => { if (live) setSession(saved); })
+      .catch((error) => { if (live) setSessionError(error instanceof Error ? error.message : "Could not open this browser’s saved device."); })
+      .finally(() => { if (live) setSessionLoading(false); });
+    return () => { live = false; };
+  }, [sessionAttempt]);
   const go = (p: string) => {
     navigate(p);
     setMobile(false);
   };
+  if (path === "/app" && (sessionLoading || sessionError))
+    return <main className="document">
+      <button className="back-link" onClick={() => go("/")}>Back to Zavliq</button>
+      <h1>{sessionLoading ? "Opening your device…" : "Your saved device needs attention."}</h1>
+      <p role={sessionError ? "alert" : "status"}>{sessionError || "Reading this browser’s saved identity and completing any approved pairing."}</p>
+      {sessionError && <button className="button primary" onClick={() => setSessionAttempt((attempt) => attempt + 1)}>Retry opening this device</button>}
+    </main>;
   if (path === "/app")
     return <Console session={session} onSession={setSession} go={go} />;
   return (
