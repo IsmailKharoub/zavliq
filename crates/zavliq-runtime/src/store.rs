@@ -45,6 +45,12 @@ pub struct Store {
     _lock: File,
 }
 
+enum RecoveryPhase<'a> {
+    Keep,
+    Pending(Option<&'a str>),
+    Complete,
+}
+
 pub fn private_dir(path: &Path) -> Result<()> {
     fs::create_dir_all(path)?;
     #[cfg(unix)]
@@ -163,7 +169,41 @@ impl Store {
         events: &[(String, Value)],
         gaps: &[(String, Option<String>)],
     ) -> Result<usize> {
-        self.commit_batch(cursor, events, gaps, None)
+        self.commit_batch(cursor, events, gaps, None, RecoveryPhase::Keep)
+    }
+    pub fn recovery_phase(&self) -> Result<Option<Option<String>>> {
+        self.db
+            .query_row(
+                "SELECT value FROM metadata WHERE key='recovery_sdk_token'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .map(|raw| serde_json::from_str(&raw).map_err(Into::into))
+            .transpose()
+    }
+    pub fn commit_recovery(
+        &mut self,
+        cursor: &str,
+        events: &[(String, Value)],
+        gaps: &[(String, Option<String>)],
+        sdk_token: Option<&str>,
+    ) -> Result<usize> {
+        self.commit_batch(
+            cursor,
+            events,
+            gaps,
+            None,
+            RecoveryPhase::Pending(sdk_token),
+        )
+    }
+    pub fn complete_sync(
+        &mut self,
+        cursor: &str,
+        events: &[(String, Value)],
+        gaps: &[(String, Option<String>)],
+    ) -> Result<usize> {
+        self.commit_batch(cursor, events, gaps, None, RecoveryPhase::Complete)
     }
     pub fn commit_history(
         &mut self,
@@ -172,7 +212,7 @@ impl Store {
         room: &str,
         next: Option<&str>,
     ) -> Result<usize> {
-        self.commit_batch(cursor, events, &[], Some((room, next)))
+        self.commit_batch(cursor, events, &[], Some((room, next)), RecoveryPhase::Keep)
     }
     fn commit_batch(
         &mut self,
@@ -180,7 +220,11 @@ impl Store {
         events: &[(String, Value)],
         gaps: &[(String, Option<String>)],
         history: Option<(&str, Option<&str>)>,
+        recovery: RecoveryPhase<'_>,
     ) -> Result<usize> {
+        if cursor.is_empty() {
+            bail!("INVALID_RESPONSE: an empty sync token cannot be committed");
+        }
         let tx = self.db.transaction()?;
         let mut inserted = 0;
         for (room_id, event) in events {
@@ -217,6 +261,15 @@ impl Store {
             tx.execute("INSERT INTO gaps(room_id,prev_batch,observed_at) VALUES(?,?,unixepoch()) ON CONFLICT(room_id) DO UPDATE SET prev_batch=excluded.prev_batch,observed_at=excluded.observed_at", params![room,prev])?;
         }
         tx.execute("INSERT INTO metadata(key,value) VALUES('sync',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [cursor])?;
+        match recovery {
+            RecoveryPhase::Keep => {}
+            RecoveryPhase::Pending(token) => {
+                tx.execute("INSERT INTO metadata(key,value) VALUES('recovery_sdk_token',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [serde_json::to_string(&token)?])?;
+            }
+            RecoveryPhase::Complete => {
+                tx.execute("DELETE FROM metadata WHERE key='recovery_sdk_token'", [])?;
+            }
+        }
         if let Some((room, next)) = history {
             if let Some(next) = next {
                 tx.execute(
@@ -427,6 +480,42 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recovery_phase_is_atomic_and_distinguishes_no_sdk_token_from_no_phase() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(dir.path().to_owned()).unwrap();
+        let event = json!({"event_id":"$pending","sender":"@peer:local","type":"m.room.message","content":{"body":"pending","msgtype":"m.text"}});
+        store
+            .commit_recovery(
+                "raw-1",
+                &[("!room:local".into(), event)],
+                &[("!room:local".into(), Some("page-1".into()))],
+                None,
+            )
+            .unwrap();
+        drop(store);
+        let mut store = Store::open(dir.path().to_owned()).unwrap();
+        assert_eq!(store.recovery_phase().unwrap(), Some(None));
+        store.db.execute_batch("CREATE TEMP TRIGGER interrupt_commit BEFORE UPDATE ON metadata WHEN NEW.key='sync' BEGIN SELECT RAISE(ABORT, 'simulated interruption'); END;").unwrap();
+        let event = json!({"event_id":"$later","sender":"@peer:local","type":"m.room.message","content":{"body":"later","msgtype":"m.text"}});
+        assert!(
+            store
+                .complete_sync("raw-2", &[("!room:local".into(), event)], &[])
+                .is_err()
+        );
+        assert_eq!(store.cursor().unwrap().as_deref(), Some("raw-1"));
+        assert_eq!(store.recovery_phase().unwrap(), Some(None));
+        assert!(store.event_content("$later").is_err());
+        store
+            .db
+            .execute_batch("DROP TRIGGER interrupt_commit")
+            .unwrap();
+        assert!(store.complete_sync("", &[], &[]).is_err());
+        assert_eq!(store.recovery_phase().unwrap(), Some(None));
+        store.complete_sync("raw-2", &[], &[]).unwrap();
+        assert_eq!(store.recovery_phase().unwrap(), None);
+        assert_eq!(store.cursor().unwrap().as_deref(), Some("raw-2"));
+    }
     #[test]
     fn store_locks_and_releases_identity() {
         let dir = tempfile::tempdir().unwrap();

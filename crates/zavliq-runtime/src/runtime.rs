@@ -6,6 +6,7 @@ use matrix_sdk::{
     authentication::matrix::MatrixSession,
     config::{RequestConfig, SyncSettings, SyncToken},
     ruma::{OwnedEventId, OwnedRoomId, OwnedTransactionId, OwnedUserId},
+    store::StateStoreDataKey,
 };
 use rand::RngCore;
 use serde_json::{Value, json};
@@ -21,6 +22,10 @@ pub struct Runtime {
     http: reqwest::Client,
     control_url: String,
 }
+
+#[cfg(test)]
+#[path = "sync_tests.rs"]
+mod sync_tests;
 
 #[cfg(test)]
 mod tests {
@@ -116,18 +121,34 @@ impl Runtime {
         let s = identity
             .session
             .context("REGISTRATION_INCOMPLETE: retry init with the original handle")?;
+        let has_inbox_cursor = self.store.cursor()?.is_some();
+        let matrix_path = self.store.path.join("matrix");
+        if has_inbox_cursor && !matrix_path.join("matrix-sdk-crypto.sqlite3").is_file() {
+            bail!(
+                "SYNC_STATE_INCOMPLETE: encryption state is missing from an existing device. Restore the complete private directory or pair/recover a fresh device; do not recreate keys for the old device ID."
+            );
+        }
         let client = Client::builder()
             .homeserver_url(&s.homeserver)
-            .sqlite_store(
-                self.store.path.join("matrix"),
-                Some(&identity.store_passphrase),
-            )
+            .sqlite_store(matrix_path, Some(&identity.store_passphrase))
             .with_room_key_recipient_strategy(
                 matrix_sdk_crypto::CollectStrategy::OnlyTrustedDevices,
             )
             .request_config(RequestConfig::new().retry_limit(2))
             .build()
             .await?;
+        if has_inbox_cursor
+            && self.store.recovery_phase()? != Some(None)
+            && client
+                .state_store()
+                .get_kv_data(StateStoreDataKey::SyncToken)
+                .await?
+                .is_none()
+        {
+            bail!(
+                "SYNC_STATE_INCOMPLETE: persisted Matrix sync state is missing. Restore the complete private directory or pair/recover a fresh device before connecting."
+            );
+        }
         let session: MatrixSession = serde_json::from_value(
             json!({"user_id":s.user_id,"device_id":s.device_id,"access_token":s.access_token}),
         )?;
@@ -232,22 +253,109 @@ impl Runtime {
     }
     async fn sync(&mut self, wait_seconds: u64) -> Result<Value> {
         let client = self.client().await?;
-        let token = self
-            .store
-            .cursor()?
+        let inbox_token = self.store.cursor()?;
+        let sdk_token = client
+            .state_store()
+            .get_kv_data(StateStoreDataKey::SyncToken)
+            .await?
+            .and_then(|value| value.into_sync_token());
+        let phase = self.store.recovery_phase()?;
+        if inbox_token.is_some() && sdk_token.is_none() && phase != Some(None) {
+            bail!(
+                "SYNC_STATE_INCOMPLETE: the inbox has a cursor but Matrix device state has no sync token. Restore the complete private device directory or pair/recover a fresh device; do not reuse partial encryption state."
+            );
+        }
+        let finish_sdk_first = phase.as_ref().is_some_and(|origin| origin == &sdk_token);
+        let mut recovered = 0;
+        let mut recovery_origin = phase;
+        let mut recovery_cursor = if finish_sdk_first {
+            inbox_token.clone()
+        } else {
+            None
+        };
+        if inbox_token != sdk_token && !finish_sdk_first {
+            // sync_once persists SDK state before returning timeline events. An
+            // interrupted call can therefore leave the SDK ahead of our inbox;
+            // the SDK then suppresses an identical replay. Recover directly
+            // from the durable inbox cursor before allowing that suppression.
+            let mut path = "/_matrix/client/v3/sync?timeout=0&use_state_after=true".to_owned();
+            if let Some(token) = &inbox_token {
+                path.push_str("&since=");
+                path.push_str(&escaped(token));
+            }
+            let raw = self.matrix(reqwest::Method::GET, &path, None).await?;
+            let next = required(&raw, "next_batch")?;
+            let mut events = Vec::new();
+            let mut gaps = Vec::new();
+            if let Some(rooms) = raw["rooms"]["join"].as_object() {
+                for (room_id, room) in rooms {
+                    if room["timeline"]["limited"].as_bool().unwrap_or(false) {
+                        gaps.push((
+                            room_id.clone(),
+                            room["timeline"]["prev_batch"].as_str().map(str::to_owned),
+                        ));
+                    }
+                    if let Some(timeline) = room["timeline"]["events"].as_array() {
+                        events.extend(
+                            timeline
+                                .iter()
+                                .cloned()
+                                .map(|event| (room_id.clone(), event)),
+                        );
+                    }
+                    if let Some(ephemeral) = room["ephemeral"]["events"].as_array() {
+                        for event in ephemeral {
+                            if event["type"] == "m.receipt" {
+                                if let Some(reads) = event["content"].as_object() {
+                                    for (event_id, types) in reads {
+                                        if let Some(users) = types["m.read"].as_object() {
+                                            for user in users.keys() {
+                                                events.push((room_id.clone(),json!({"type":"com.zavliq.receipt","sender":user,"content":{"event_id":event_id,"status":"read"}})));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Raw encrypted messages remain private ciphertext in the inbox.
+            // SDK processing and the existing late-decryption path upgrade them.
+            // Only this response's own token advances with its durable events.
+            recovered = self
+                .store
+                .commit_recovery(next, &events, &gaps, sdk_token.as_deref())?;
+            recovery_origin = Some(sdk_token.clone());
+            recovery_cursor = Some(next.to_owned());
+        }
+        // Crypto/state catch-up follows the SDK's own committed token, even if
+        // raw inbox recovery already ingested a newer response above.
+        let token = sdk_token
             .map(SyncToken::Specific)
             .unwrap_or(SyncToken::NoToken);
         let response = client
             .sync_once(
                 SyncSettings::default()
                     .token(token)
+                    // Separate recovery from a server-cached ordinary sync
+                    // response whose client processing may have been cancelled.
+                    // Every recovery request follows the durable phase marker.
+                    .full_state(recovery_cursor.is_some())
                     .timeout(Duration::from_secs(wait_seconds.min(30))),
             )
             .await?;
+        if response.next_batch.is_empty() {
+            bail!("INVALID_RESPONSE: Matrix synchronization returned an empty next_batch token");
+        }
+        // Tokens are opaque. During reconciliation, ingest SDK events without
+        // replacing the raw response's known durable boundary with a different
+        // catch-up token. Another mismatch is safely reconciled next time.
+        let commit_cursor = recovery_cursor.as_deref().unwrap_or(&response.next_batch);
         let mut events = Vec::new();
         let mut gaps = Vec::new();
         for (room_id, room) in &response.rooms.joined {
-            if room.timeline.limited {
+            if room.timeline.limited && recovery_cursor.is_none() {
                 gaps.push((room_id.to_string(), room.timeline.prev_batch.clone()));
             }
             for event in &room.timeline.events {
@@ -271,9 +379,19 @@ impl Runtime {
                 }
             }
         }
-        let mut count = self
-            .store
-            .commit_sync(&response.next_batch, &events, &gaps)?;
+        // Reusing a raw /sync token acknowledges queued to-device messages.
+        // Keep the marker until the SDK advances or already processed that
+        // exact boundary. A restarted recovery must finish SDK catch-up first.
+        let sdk_caught_up = recovery_origin.as_ref().is_none_or(|origin| {
+            origin.as_deref() != Some(response.next_batch.as_str())
+                || recovery_cursor.as_deref() == origin.as_deref()
+        });
+        let mut count = recovered
+            + if sdk_caught_up {
+                self.store.complete_sync(commit_cursor, &events, &gaps)?
+            } else {
+                self.store.commit_sync(commit_cursor, &events, &gaps)?
+            };
         self.refresh_blocks().await?;
         // A limited /sync response is not a complete inbox. Resume one durable
         // backward page per gap on each sync, preserving the marker on failure.
@@ -293,32 +411,18 @@ impl Runtime {
                 options.limit = 100u32.into();
                 if let Ok(page) = room.messages(options).await {
                     let mut previous = Vec::new();
-                    let mut met_existing = false;
                     for event in page.chunk.iter().rev() {
                         let event: Value = serde_json::from_str(event.raw().json().get())?;
-                        if let Some(event_id) = event["event_id"].as_str() {
-                            if self.store.db.query_row(
-                                "SELECT count(*) FROM events WHERE event_id=?",
-                                [event_id],
-                                |r| r.get::<_, i64>(0),
-                            )? > 0
-                            {
-                                met_existing = true;
-                            }
-                        }
                         previous.push((room_id.clone(), event));
                     }
-                    let next = if page.chunk.is_empty() || met_existing {
+                    let next = if page.chunk.is_empty() {
                         None
                     } else {
                         page.end.as_deref()
                     };
-                    count += self.store.commit_history(
-                        &response.next_batch,
-                        &previous,
-                        &room_id,
-                        next,
-                    )?;
+                    count += self
+                        .store
+                        .commit_history(commit_cursor, &previous, &room_id, next)?;
                 }
             }
         }
@@ -332,17 +436,21 @@ impl Runtime {
                 if let Ok(event) = room.event(&event, None).await {
                     let event: Value = serde_json::from_str(event.raw().json().get())?;
                     if event["type"] != "m.room.encrypted" {
-                        count += self.store.commit_sync(
-                            &response.next_batch,
-                            &[(room_id, event)],
-                            &[],
-                        )?;
+                        count += self
+                            .store
+                            .commit_sync(commit_cursor, &[(room_id, event)], &[])?;
                     }
                 }
             }
         }
+        let remaining_gaps = self
+            .store
+            .db
+            .prepare("SELECT room_id FROM gaps")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(
-            json!({"received":count,"requests":client.invited_rooms().len(),"connected":true,"history_gap_rooms":gaps.iter().map(|(r,_)|r).collect::<Vec<_>>()}),
+            json!({"received":count,"requests":client.invited_rooms().len(),"connected":true,"history_gap_rooms":remaining_gaps}),
         )
     }
     async fn room(&mut self, room_id: &str) -> Result<matrix_sdk::Room> {
