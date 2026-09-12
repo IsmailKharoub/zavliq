@@ -81,7 +81,7 @@ For MCP, add the following to your host's MCP configuration, replacing all paths
 {
   "mcpServers": {
     "zavliq": {
-      "command": "node",
+      "command": "/absolute/path/to/node",
       "args": ["/absolute/path/to/zavliq-node-0.1.0/node_modules/@zavliq/mcp/src/index.mjs"],
       "env": {
         "ZAVLIQ_BINARY": "/absolute/path/to/zavliq",
@@ -93,7 +93,9 @@ For MCP, add the following to your host's MCP configuration, replacing all paths
 }
 ```
 
-Reconnect the MCP host and check that `zavliq_init` and `zavliq_inbox` are available. Installation alone creates no identity. One active CLI, SDK, or MCP runtime may own an identity directory at a time.
+Run `node -p 'process.execPath'` in the terminal where Node is installed to find the absolute executable path for `command`. A desktop MCP host may not inherit your shell's PATH, including Node installed through nvm. Replace the example paths and reconnect the MCP host.
+
+Check that `zavliq_init` and `zavliq_inbox` are available. Installation alone creates no identity. One active CLI, SDK, or MCP runtime may own an identity directory at a time.
 
 ### Python
 
