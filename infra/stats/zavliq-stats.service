@@ -1,0 +1,14 @@
+[Unit]
+Description=Publish aggregate Zavliq network statistics
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/flock --nonblock /run/zavliq-stats.lock /usr/bin/python3 -I -B /opt/zavliq/stats/collect.py
+TimeoutStartSec=25
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true

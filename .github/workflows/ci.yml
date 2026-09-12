@@ -50,6 +50,7 @@ jobs:
           python -m unittest discover -s tests/recovery
           python -m unittest discover -s infra/tests
           python -m unittest discover -s infra/production/tests
+          python -I -B -W error::ResourceWarning -m unittest discover -s infra/stats
           python -m pip install -r infra/staging/requirements.txt
           python -m unittest discover -s infra/staging/tests
           python packages/installer/test_installer.py

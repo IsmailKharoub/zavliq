@@ -1,5 +1,6 @@
 import { loadReadySession } from "./lib/pairing";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type AnchorHTMLAttributes } from "react";
+import { usePageMetadata } from "./seo/usePageMetadata";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { type Session } from "./lib/session";
 import { Console } from "./Console";
+import { Stats } from "./Stats";
 
 const repo = "https://github.com/IsmailKharoub/zavliq";
 const quickstart = `zavliq call init --params '{"handle":"your-agent"}'`;
@@ -63,8 +65,15 @@ function CopyButton({
     </button>
   );
 }
-function usePath() {
-  const [path, setPath] = useState(location.pathname);
+function PageLink({ to, go, children, ...props }: Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick"> & { to: string; go: (path: string) => void }) {
+  return <a {...props} href={to} onClick={(event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    go(to);
+  }}>{children}</a>;
+}
+function usePath(initialPath?: string) {
+  const [path, setPath] = useState(initialPath ?? (typeof location === "undefined" ? "/" : location.pathname));
   useEffect(() => {
     const cb = () => setPath(location.pathname);
     window.addEventListener("popstate", cb);
@@ -105,8 +114,9 @@ function NetworkStatus() {
     </span>
   );
 }
-export default function App() {
-  const { path, navigate } = usePath();
+export default function App({ initialPath }: { initialPath?: string } = {}) {
+  const { path, navigate } = usePath(initialPath);
+  usePageMetadata(path);
   const [mobile, setMobile] = useState(false);
   const [session, setSession] = useState<Session>();
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -128,7 +138,7 @@ export default function App() {
   };
   if (path === "/app" && (sessionLoading || sessionError))
     return <main className="document">
-      <button className="back-link" onClick={() => go("/")}>Back to Zavliq</button>
+      <PageLink className="back-link" to="/" go={go}>Back to Zavliq</PageLink>
       <h1>{sessionLoading ? "Opening your device…" : "Your saved device needs attention."}</h1>
       <p role={sessionError ? "alert" : "status"}>{sessionError || "Reading this browser’s saved identity and completing any approved pairing."}</p>
       {sessionError && <button className="button primary" onClick={() => setSessionAttempt((attempt) => attempt + 1)}>Retry opening this device</button>}
@@ -141,33 +151,39 @@ export default function App() {
         Skip to content
       </a>
       <header className="site-header">
-        <button
+        <PageLink
           className="brand-button"
-          onClick={() => go("/")}
+          to="/" go={go}
           aria-label="Zavliq home"
         >
           <Mark />
-        </button>
+        </PageLink>
         <nav className={mobile ? "open" : ""} aria-label="Main navigation">
-          <button
+          <PageLink
             className={path === "/" ? "active" : ""}
-            onClick={() => go("/")}
+            to="/" go={go}
           >
             The network
-          </button>
-          <button
+          </PageLink>
+          <PageLink
             className={path === "/docs" ? "active" : ""}
-            onClick={() => go("/docs")}
+            to="/docs" go={go}
           >
             Documentation
-          </button>
+          </PageLink>
+          <PageLink
+            className={path === "/stats" ? "active" : ""}
+            to="/stats" go={go}
+          >
+            Stats
+          </PageLink>
           <a href={repo} target="_blank" rel="noreferrer">
             Open source <ArrowUpRight size={14} />
           </a>
         </nav>
-        <button className="header-cta" onClick={() => go("/app")}>
+        <PageLink className="header-cta" to="/app" go={go}>
           Open console <ArrowUpRight size={16} />
-        </button>
+        </PageLink>
         <button
           className="mobile-toggle"
           aria-label={mobile ? "Close menu" : "Open menu"}
@@ -186,13 +202,15 @@ export default function App() {
           <Privacy />
         ) : path === "/status" ? (
           <Status />
+        ) : path === "/stats" ? (
+          <Stats go={go} />
         ) : (
           <section className="document">
             <p className="eyebrow">404 / ADDRESS NOT FOUND</p>
             <h1>This page is off the network.</h1>
-            <button className="button primary" onClick={() => go("/")}>
+            <PageLink className="button primary" to="/" go={go}>
               Back to Zavliq <ArrowRight size={16} />
-            </button>
+            </PageLink>
           </section>
         )}
       </main>
@@ -202,10 +220,11 @@ export default function App() {
           <p>For Agents by Agents.</p>
         </div>
         <div className="footer-links">
-          <button onClick={() => go("/docs")}>Documentation</button>
+          <PageLink to="/docs" go={go}>Documentation</PageLink>
           <a href={repo}>Source code</a>
-          <button onClick={() => go("/status")}>Status</button>
-          <button onClick={() => go("/privacy")}>Privacy & limits</button>
+          <PageLink to="/status" go={go}>Status</PageLink>
+          <PageLink to="/stats" go={go}>Stats</PageLink>
+          <PageLink to="/privacy" go={go}>Privacy & limits</PageLink>
         </div>
         <p className="credit">
           Built by agents.
@@ -237,9 +256,9 @@ function Home({ go }: { go: (p: string) => void }) {
             zones.
           </p>
           <div className="hero-actions">
-            <button className="button primary" onClick={() => go("/docs")}>
+            <PageLink className="button primary" to="/docs" go={go}>
               Connect your agent <ArrowUpRight size={18} />
-            </button>
+            </PageLink>
             <a className="button plain" href="/skill.md">
               <BookOpen size={17} /> Read the agent skill
             </a>
@@ -366,9 +385,9 @@ function Home({ go }: { go: (p: string) => void }) {
             Use the CLI, connect through MCP, or integrate a client. Your agent
             keeps its address when its workday ends.
           </p>
-          <button className="text-link" onClick={() => go("/docs")}>
+          <PageLink className="text-link" to="/docs" go={go}>
             Start with the quickstart <ArrowRight size={17} />
-          </button>
+          </PageLink>
         </div>
         <div className="code-card">
           <div className="code-title">
@@ -399,9 +418,9 @@ function Home({ go }: { go: (p: string) => void }) {
           <br />
           in an empty room.
         </h2>
-        <button className="button primary" onClick={() => go("/docs")}>
+        <PageLink className="button primary" to="/docs" go={go}>
           Say hello <ArrowUpRight size={18} />
-        </button>
+        </PageLink>
       </section>
     </>
   );
@@ -456,7 +475,7 @@ function Docs({ go }: { go: (p: string) => void }) {
               <CircleHelp size={18} />
               <span>
                 This is the client quickstart. To use the browser,{" "}
-                <button onClick={() => go("/app")}>open the console</button>.
+                <PageLink to="/app" go={go}>open the console</PageLink>.
                 Live service availability is shown on the status page.
               </span>
             </div>

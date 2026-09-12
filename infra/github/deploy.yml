@@ -84,7 +84,7 @@ jobs:
                  '-o','ServerAliveInterval=15','-o','ServerAliveCountMax=4','zavliq']
           checks = ''.join(hashlib.sha256(pathlib.Path('infra/production/'+name).read_bytes()).hexdigest()
                            +'  /opt/zavliq/production-tools/'+name+'\n'
-                           for name in ['activate.py','prepare_bundle.py'])
+                           for name in ['activate.py','prepare_bundle.py','website_state.py','website.py'])
           subprocess.run(ssh+['sudo sha256sum --check --status -'],input=checks,text=True,check=True,timeout=60)
           # Values passed to SSH's remote shell were restricted to literal IDs above.
           command = ('sudo python3 /opt/zavliq/production-tools/activate.py activate'

@@ -20,6 +20,12 @@
 		header @https Strict-Transport-Security "max-age=31536000"
 		@private path /_synapse/admin/* /_matrix/federation/* /_matrix/key/* /metrics
 		respond @private 404
+		handle /_zavliq/stats {
+			root * /status
+			rewrite * /stats.json
+			header Cache-Control no-store
+			file_server
+		}
 		handle /_zavliq/health {
 			root * /status
 			rewrite * /health.json
@@ -52,10 +58,44 @@
 		}
 		handle {
 			root * /srv
-			@immutable path /assets/*
-			header @immutable Cache-Control "public, max-age=31536000, immutable"
-			try_files {path} /index.html
-			file_server
+			route {
+				# Canonical URLs keep query strings and never redirect internal rewrites.
+				@home_alias path /index /index/ /index.html /index.html/
+				redir @home_alias /{?query} 308
+				@page_alias path_regexp seo_alias ^/(docs|privacy|status|stats|app)(/|\.html/?)$
+				redir @page_alias /{re.seo_alias.1}{?query} 308
+				handle / {
+					header Cache-Control no-cache
+					rewrite * /index.html
+					file_server
+				}
+				@page path /docs /privacy /status /stats /app
+				handle @page {
+					@console path /app
+					header @console X-Robots-Tag "noindex, follow"
+					header Cache-Control no-cache
+					rewrite * {path}.html
+					file_server
+				}
+				# Serve real public documents and retained hashed assets, not directory listings.
+				@static {
+					not path /*.html /*/
+					file {path}
+				}
+				handle @static {
+					@immutable path /assets/*
+					header @immutable Cache-Control "public, max-age=31536000, immutable"
+					file_server
+				}
+				handle {
+					header Cache-Control no-store
+					header X-Robots-Tag "noindex, follow"
+					rewrite * /404.html
+					file_server {
+						status 404
+					}
+				}
+			}
 		}
 	}
 }

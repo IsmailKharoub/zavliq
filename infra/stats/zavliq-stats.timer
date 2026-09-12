@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Zavliq public aggregate statistics every five minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=10s
+Unit=zavliq-stats.service
+
+[Install]
+WantedBy=timers.target

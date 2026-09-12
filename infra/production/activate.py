@@ -19,6 +19,7 @@ import time
 import urllib.request
 
 import prepare_bundle as bundle
+import website_state
 
 PROJECT = 'zavliq-production'
 TOOLS = Path('/opt/zavliq/production-tools')
@@ -213,10 +214,11 @@ def verify_bundle(path, expected_hash):
     return value
 
 
-def compose_args(paths, release, *args):
+def compose_args(paths, release, *args, include_website=True):
+    website = website_state.active_overlay(paths, release) if include_website else None
     return ['docker', 'compose', '--project-name', PROJECT, '--env-file', str(paths.env),
             '-f', str(release / 'infra/compose.yaml'), '-f', str(release / 'infra/compose.production.yaml'),
-            '-f', str(release / 'compose.images.yaml'), *args]
+            '-f', str(release / 'compose.images.yaml'), *(['-f', str(website)] if website else []), *args]
 
 
 def verify_composed(config, manifest, paths):
@@ -274,7 +276,7 @@ def runtime_record(paths):
     verify_namespace(values, paths)
     if values['ZAVLIQ_RELEASE'] != manifest['revision'] or not paths.current.is_symlink() or paths.current.resolve() != release.resolve():
         raise ValueError('ACTIVE_PRODUCTION_POINTER_MISMATCH')
-    return record, release, manifest
+    return record, release, website_state.effective_manifest(paths, release, manifest)
 
 
 def run_compose(paths, release, *args, timeout=30, passthrough=False):
@@ -393,7 +395,7 @@ def run_health(paths, timeout=35):
 
     def running():
         record, release, manifest = runtime_record(paths)
-        if record['status'] != 'ready' or set(manifest['images']) != bundle.SERVICES:
+        if record['status'] != 'ready' or set(manifest['images']) != bundle.SERVICES or manifest.get('website_status', 'ready') != 'ready':
             raise ValueError('READY_PRODUCTION_WITH_ALL_SERVICES_REQUIRED')
         require_running(paths, release, manifest, deadline=deadline)
 
@@ -423,10 +425,16 @@ def run_health(paths, timeout=35):
     def expired(*_):
         raise HealthDeadline('HEALTH_DEADLINE')
 
+    def public():
+        public_readiness(deadline)
+        if (paths.state / 'website-active.json').exists():
+            from website import stats_readiness
+            stats_readiness(timeout=remaining_timeout(deadline))
+
     previous_handler = signal.signal(signal.SIGALRM, expired)
     signal.setitimer(signal.ITIMER_REAL, timeout)
     try:
-        for name, check in [('running_images', running), ('public_https', lambda: public_readiness(deadline)),
+        for name, check in [('running_images', running), ('public_https', public),
                             ('disk', disk), ('backup_age', backup)]:
             try:
                 remaining_timeout(deadline)
@@ -473,6 +481,8 @@ def stop_operations(report):
 
 
 def activate(paths, bundle_id, expected_hash, expected_current):
+    if (paths.state / 'website-active.json').exists() or (paths.state / 'website-active.json').is_symlink():
+        raise ValueError('FULL_DEPLOY_REQUIRES_EXPLICIT_WEBSITE_RECONCILIATION')
     release = release_path(paths, bundle_id)
     manifest = verify_bundle(release, expected_hash)
     values = load_environment(paths.env)
@@ -587,7 +597,7 @@ def main():
     args = parser.parse_args()
     if os.geteuid() != 0 or Path(__file__).resolve() != TOOLS / 'activate.py':
         parser.error('Use the reviewed root-owned /opt/zavliq/production-tools installation on the production host.')
-    for name in ['activate.py', 'prepare_bundle.py']:
+    for name in ['activate.py', 'prepare_bundle.py', 'website_state.py', 'website.py']:
         info = (TOOLS / name).lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o022:
             parser.error('Production tools must be root-owned and not writable by other users.')

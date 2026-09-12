@@ -214,7 +214,7 @@ def stop_writers(paths, release, values, report):
             act.atomic_write(env, ''.join(f'{key}={value}\n' for key, value in values.items()))
             view = SimpleNamespace(env=env)
             act.command(act.compose_args(view, release, '--profile', 'echo', 'stop', '--timeout', '30',
-                                         'echo', 'gateway', 'control', 'synapse', 'postgres'), timeout=165, env=values)
+                                         'echo', 'gateway', 'control', 'synapse', 'postgres', include_website=False), timeout=165, env=values)
     except Exception: report['stop_incomplete'] = True
 
 
@@ -270,7 +270,7 @@ def prepare(paths, restore_id, bundle_id, manifest_hash, input_path, input_hash,
         env = temporary / 'compose.env'
         act.atomic_write(env, ''.join(f'{key}={item}\n' for key, item in values.items()))
         view = SimpleNamespace(env=env)
-        composed = json.loads(act.command(act.compose_args(view, release, '--profile', '*', 'config', '--format', 'json'), env=values).stdout)
+        composed = json.loads(act.command(act.compose_args(view, release, '--profile', '*', 'config', '--format', 'json', include_website=False), env=values).stdout)
         act.verify_composed(composed, manifest, paths)
         for image in manifest['images'].values():
             cached = set(act.command(['docker', 'image', 'ls', '--quiet', '--no-trunc', '--filter', 'reference=' + image['ref']]).stdout.split())
@@ -406,7 +406,7 @@ def main():
     args = parser.parse_args()
     if os.geteuid() != 0 or Path(__file__).resolve() != act.TOOLS / 'restore.py':
         parser.error('Use the reviewed root-owned /opt/zavliq/production-tools installation on the replacement host.')
-    for name in ('restore.py', 'activate.py', 'prepare_bundle.py'):
+    for name in ('restore.py', 'activate.py', 'prepare_bundle.py', 'website_state.py', 'website.py'):
         info = (act.TOOLS / name).lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o022:
             parser.error('Production tools must be root-owned and protected.')

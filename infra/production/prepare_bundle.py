@@ -228,7 +228,7 @@ def verify_docker_archive(path, images, runtime):
         rootfs = config.get('rootfs', {})
         if rootfs.get('type') != 'layers' or rootfs.get('diff_ids') != [records[n]['diff_id'] for n in layer_names]:
             raise ValueError('DOCKER_LAYER_DIFF_ID_MISMATCH')
-        if ref == images['echo']['ref']:
+        if 'echo' in images and ref == images['echo']['ref']:
             labels = (config.get('config') or {}).get('Labels') or {}
             if labels.get('org.opencontainers.image.revision') != runtime['head_sha'] or labels.get('com.zavliq.native.sha256') != runtime['binary_sha256']:
                 raise ValueError('ECHO_RUNTIME_PROVENANCE_MISMATCH')
