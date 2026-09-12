@@ -1,0 +1,64 @@
+{
+  "schema": "zavliq.website-documentation-release.v1",
+  "status": "deployed_and_verified",
+  "scope": "Website installation-guide update for desktop MCP hosts; only install.md differs in the served artifact.",
+  "source_revision": "ded1b5a0bdbcba60bbf716150064ee8c9c638d5f",
+  "source_ci": {
+    "run_id": 34712627680,
+    "conclusion": "success",
+    "revision": "ded1b5a0bdbcba60bbf716150064ee8c9c638d5f"
+  },
+  "website_id": "ded1b5a0bdbcba60bbf716150064ee8c9c638d5f-web-7682053d3c3311c8",
+  "website_manifest_sha256": "eae018094ad0ed10aecbb361eaf5a3fa51c3a50f141e37fc198ea4d5d6c801b9",
+  "gateway_image": {
+    "ref": "zavliq-web:ded1b5a0bdbcba60bbf716150064ee8c9c638d5f-web-7682053d3c3311c8",
+    "id": "sha256:416762af1f881232f116f787c022185a48202df193d58919643da74e376b36d3"
+  },
+  "previous_website_manifest_sha256": "7c347ac2b8ec863429991e2a75ae23a6b59da96497a65f4edbb53cbad8355ee4",
+  "base_manifest_sha256": "55f0bccfdf7f7a267377fd44ce115603c2e7f8ea383502236f390cee387fc39c",
+  "application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "install_document_sha256": "f8f6fe653edd3f9fcbbbf29bef985c49af8b243ef2e6464ef77b21abc5dc701b",
+  "activation": {
+    "host_started_at": "2026-09-12T19:18:10+00:00",
+    "host_completed_at": "2026-09-12T19:18:14+00:00",
+    "controller_completed_at": "2026-09-12T19:18:13.100224+00:00",
+    "controller_elapsed_seconds": 8.633,
+    "gateway_only": true,
+    "backend_container_ids_images_start_times_and_full_mounts_unchanged": true,
+    "base_pointer_environment_tools_and_four_timers_unchanged": true,
+    "fresh_health_check_succeeded": true,
+    "sampled_public_health_requests": 6,
+    "failed_sampled_health_requests": 0,
+    "availability_measurement_scope": "Discrete HTTP samples, not continuous observation or a zero-downtime guarantee."
+  },
+  "public_verification": {
+    "completed_at": "2026-09-12T19:21:25.767399+00:00",
+    "installation_guide_and_six_public_routes_match_package": true,
+    "all_eleven_existing_assets_match_package": true,
+    "health_ok": true,
+    "stats_current": true,
+    "stats_as_of": "2026-09-12T19:18:56Z",
+    "client_or_browser_state_opened": false
+  },
+  "artifact_retention": {
+    "archive_sha256": "c18acd7aae531eb578392227a06ce50cd8b1757d8145ae0ba8b65f6cce5e1619",
+    "archive_bytes": 29962240,
+    "private_owner_only": true,
+    "server_side_encryption": "AES256",
+    "independent_full_readback_verified": true,
+    "previous_website_package_retained": true,
+    "runtime_secrets_or_device_stores_included": false
+  },
+  "retained_pre_activation_corrections": [
+    "Artifact bucket selection guard corrected before any AWS request.",
+    "Tuple/list presentation normalized for exact backend metadata comparison before package installation or gateway activation; original upload and failure evidence retained."
+  ],
+  "private_evidence_sha256": {
+    "root_verification": "65288e1b7434893c51849b2c56536f23c6b559b1e8a86cb863feb779f133abe1",
+    "public_verification": "2ac471885bbae6b235c8ec77089584561b0a01b87f4816a5569dfc92cd4bc099",
+    "retention": "5b3e7ce588d7b6914a09ebd7e7f4c5f54598e874e389a90939b8602a805ebf47"
+  },
+  "full_launch_verified": false,
+  "production_recovery_verified": false,
+  "finalized_at": "2026-09-12T19:24:04.435282+00:00"
+}
