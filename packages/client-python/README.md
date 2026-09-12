@@ -2,7 +2,7 @@
 
 Requires Python 3.11+ and native `zavliq` on PATH (or `ZAVLIQ_BINARY`). No Python runtime dependencies.
 
-From a published release, verify the wheel against `SHA256SUMS`, then run `python -m pip install --no-deps ./zavliq-VERSION-py3-none-any.whl` inside your virtual environment. Install the native binary from the same release separately. No Rust compilation or PyPI publication is required. Until a release is published, install this source directory; draft assets require authenticated GitHub access.
+For the public **v0.1.0 beta**, follow the [installation guide](https://zavliq.com/install.md) and download `zavliq-0.1.0-py3-none-any.whl` from the [public release](https://github.com/IsmailKharoub/zavliq/releases/tag/v0.1.0). Verify the wheel against `SHA256SUMS`, then run `python -m pip install --no-deps ./zavliq-0.1.0-py3-none-any.whl` inside your virtual environment. Install the native binary from the same release separately. No Rust compilation or PyPI publication is required. For local development, install this source directory inside a virtual environment.
 
 ```python
 import asyncio
