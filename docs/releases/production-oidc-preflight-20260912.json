@@ -1,0 +1,95 @@
+{
+  "schema": "zavliq.production-oidc-preflight.v1",
+  "status": "passed",
+  "checked_at": "2026-09-12T13:54:29.512091+00:00",
+  "source_revision": "f87bf14cfc69ae7341ce38c1237dd6996b664b3a",
+  "workflow_sha256": "26baacfd3f3de1d33958ecb443c16eca10292b65ffdded1bfb8abe90c1373828",
+  "workflow": {
+    "path": ".github/workflows/production-oidc-preflight.yml",
+    "trigger": "workflow_dispatch",
+    "branch": "main",
+    "environment": "production",
+    "job_timeout_minutes": 5,
+    "aws_action_revision": "cbe3b392738ccf3f987d68400dafcf4b0624a56c",
+    "session_duration_seconds": 900
+  },
+  "permission_boundary": {
+    "actions": [
+      "sts:GetCallerIdentity",
+      "lightsail:GetInstance"
+    ],
+    "get_instance_resource_scope": "*",
+    "get_instance_region": "us-east-1",
+    "exact_selected_name_and_arn_enforced_by": "workflow validation, not resource-level IAM",
+    "listing_ssh_firewall_s3_or_activation_actions": false
+  },
+  "first_attempt": {
+    "run_id": 34696508805,
+    "url": "https://github.com/IsmailKharoub/zavliq/actions/runs/34696508805",
+    "source_revision": "5204bde96113a88bf5ae10a9605207b5934ffa2b",
+    "conclusion": "failure",
+    "metadata_validation": "success",
+    "oidc_role_assumption": "success",
+    "final_identity_check": "failure",
+    "action_cleanup": "success",
+    "observed_failure_code": "PREFLIGHT_IDENTITY_CHECK_FAILED",
+    "raw_api_error_available": false,
+    "source_policy_defect": "GetInstance was incorrectly scoped to an instance ARN; AWS does not support resource-level scoping for this read.",
+    "official_reference": "https://docs.aws.amazon.com/service-authorization/latest/reference/list_lightsail.html"
+  },
+  "corrected_attempt": {
+    "run_id": 34697719249,
+    "url": "https://github.com/IsmailKharoub/zavliq/actions/runs/34697719249",
+    "source_revision": "f87bf14cfc69ae7341ce38c1237dd6996b664b3a",
+    "event": "workflow_dispatch",
+    "head_branch": "main",
+    "created_at": "2026-09-12T13:54:18Z",
+    "completed_at": "2026-09-12T13:54:31Z",
+    "conclusion": "success",
+    "all_six_steps_passed": true,
+    "aws_action_cleanup_passed": true,
+    "evidence_sha256": {
+      "run.json": "34e66af8506abb453289c97a0a987a0acc88d5f5b6ccbabaf7ea4d4fae1fc489",
+      "jobs.json": "8ac30b29c7182c66ed03ad6aa86dbea25652ede0f0fec5475daefa93bfc0a809",
+      "logs.txt": "47de6d7019cd9c5f0cfb8ba63e0dc1c38105ff11d8a2165cbbb71040a8be95c6",
+      "binding.json": "71ca7401017fd001602f396e8fe5a68315528e1863ff688a3693f4ef5426a6ca"
+    }
+  },
+  "observed_checks": {
+    "ok": true,
+    "checked_at": "2026-09-12T13:54:29.512091+00:00",
+    "account_matches": true,
+    "role_session_matches": true,
+    "instance_name_and_arn_match": true,
+    "instance_region_matches": true,
+    "instance_running": true,
+    "deployment_or_backup_verified": false
+  },
+  "source_ci": {
+    "run_id": 34697607062,
+    "url": "https://github.com/IsmailKharoub/zavliq/actions/runs/34697607062",
+    "status": "completed",
+    "conclusion": "success",
+    "status_checked_at": "2026-09-12T14:00:27.486220+00:00",
+    "completed_at": "2026-09-12T13:59:33Z"
+  },
+  "unchanged_application_revision": "2f76469b507c8745d4be5ef311f32774021143aa",
+  "unchanged_website_revision": "98e3f8997166d1b9debbb131cfe821af962c8c8a",
+  "limitations": [
+    "This verifies a manual OIDC session and exact selected production account/role/instance identity.",
+    "AWS action credential cleanup passed; no temporary SSH access was created or tested.",
+    "Deployment, backup transfer, restore, RTO/RPO, independent adoption and full launch remain separate gates.",
+    "Deployment and backup mutation templates remain inactive.",
+    "Source CI status is a separate observation and does not change this read-only workflow result."
+  ],
+  "independently_reviewed_at": "2026-09-12T13:58:00.911388+00:00",
+  "policy_correction": {
+    "get_instance_resource": "*",
+    "required_region": "us-east-1",
+    "new_api_actions": [],
+    "unchanged_exact_host_checks": true,
+    "iam_plan_sha256": "8e550ccbb96f2c8cd3b7a5c8b39dd77538cd619c0e0f3cb8bb4a331db6f86fed",
+    "applied_policy_sha256": "59fda8cabf99f1222a2224af1322e90e1501d6ea3d5eae12602643a8d49cb4bd",
+    "application_or_route_changes": false
+  }
+}

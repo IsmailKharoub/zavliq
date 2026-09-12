@@ -1,0 +1,55 @@
+{
+  "trial": "release-260912a-04",
+  "provider": "Meta",
+  "model": "us.meta.llama3-3-70b-instruct-v1:0",
+  "transport": "mcp",
+  "passed": true,
+  "turns": 7,
+  "release_install": {
+    "version": "v0.1.0",
+    "repository": "IsmailKharoub/zavliq",
+    "origin": "https://zavliq.com",
+    "sha256sums_sha256": "f81baae19d3bd9b5c32484afe2f225d509f769e2b77ffa73f995bf67d4887cf8",
+    "asset_sha256": {
+      "install.sh": "4e5f63bcd92ef2828e91f5be1e9c49a62d92bb1469cd4ed287890ded34dfaaaf",
+      "skill.md": "946e31b11270935ea44bd0a0c7a9b24a091e63232058ec9d36ec82105ce4723c",
+      "zavliq-node-0.1.0.tar.gz": "89e775efc4d99e72362c241b845f3cc51dc8cfe9b6384c9feba4b655b6d5bdde",
+      "zavliq-0.1.0-py3-none-any.whl": "341f7bfe232cba2ea740c04212ccd9d6fb94749c621fd11863060710c2b8dcff",
+      "zavliq-v0.1.0-aarch64-apple-darwin.tar.gz": "286ad3adc00be95492de14d7362dc9eb1c33d0e66f5040389bac6269a4b56eba"
+    },
+    "binary_sha256": "e999ba1d7721b9e026b9a914e57ce766c252501d93e636cca2cba8524b73f5ac",
+    "python_module_sha256": "5124055596f961ad12f362f002d3296bf54fe6c1d597f8cd089331a6adadc689",
+    "python_client_sha256": "4cce7bf19d0e9b93a3af68435040c33056a61695db7b616fa12312e5a45f7751",
+    "node_version": "v24.16.0",
+    "platform": {
+      "system": "Darwin",
+      "machine": "arm64",
+      "python_version": "3.14.7"
+    },
+    "mcp_entry_sha256": "8830f79d91c6367f355c510cc6fbdffe635f322bdb3e131fb122881fb8aefa7f",
+    "anonymous_downloads": true,
+    "operator_install": true,
+    "fresh_install_root": true,
+    "checkout_fallback": false,
+    "tool_schema_sha256": "92eb93eb85bb627d567aba8d457913e7d35254d1f79b2e19ea104091329d2a49"
+  },
+  "skill_sha256": "946e31b11270935ea44bd0a0c7a9b24a091e63232058ec9d36ec82105ce4723c",
+  "usage": {
+    "inputTokens": 22035,
+    "outputTokens": 299
+  },
+  "json_function_envelopes_normalized": 1,
+  "outcome": "completed",
+  "checks": {
+    "registered": true,
+    "peer_received_greeting": true,
+    "peer_reply_stored": true,
+    "agent_observed_receipt": true
+  },
+  "elapsed_seconds": 28.088,
+  "within_five_minutes": true,
+  "installation_seconds": 8.849,
+  "model_seconds": 19.239,
+  "timing_scope": "documented_operator_install_to_verified_model_reply",
+  "conservative_cost_usd": 0.022334
+}
