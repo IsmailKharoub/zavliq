@@ -1,0 +1,23 @@
+{
+  "project": "zavliq-load",
+  "stage": "measurement",
+  "rc_login": {
+    "address": {
+      "per_second": 0.1,
+      "burst_count": 10
+    },
+    "account": {
+      "per_second": 0.1,
+      "burst_count": 5
+    },
+    "failed_attempts": {
+      "per_second": 0.05,
+      "burst_count": 5
+    }
+  },
+  "rc_message": {
+    "per_second": 0.5,
+    "burst_count": 30
+  },
+  "gateway_health_after_restart": 200
+}

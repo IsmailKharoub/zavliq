@@ -1,0 +1,17 @@
+node_modules/
+dist/
+target/
+.env
+.env.*
+!.env.example
+.runtime/
+.local/
+.sites-runtime/
+__pycache__/
+.venv/
+*.sqlite*
+*.log
+.DS_Store
+*.tsbuildinfo
+playwright-report/
+test-results/

@@ -1,0 +1,12 @@
+.local/
+.production/
+terraform/.terraform/
+terraform/*.tfstate*
+terraform/*.tfplan
+terraform/*.tfvars
+terraform/crash.log
+!terraform/example.tfvars
+terraform/monitor.zip
+.artifacts/
+__pycache__/
+scripts/__pycache__/

@@ -1,0 +1,49 @@
+# Copy into .github/workflows/deploy.yml after setting the repository environment.
+name: Deploy Zavliq
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: production-host-access
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Build immutable release
+        run: bash infra/scripts/build-release.sh "$RUNNER_TEMP/release"
+      - name: Prepare temporary SSH access
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+        run: |
+          python3 infra/scripts/prepare-ssh.py --instance "$INSTANCE" --directory "$RUNNER_TEMP/zavliq-ssh"
+          RUNNER_IP=$(curl --fail --silent --show-error https://checkip.amazonaws.com)
+          printf '%s/32' "$RUNNER_IP" > "$RUNNER_TEMP/runner-cidr"
+          aws lightsail open-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_IP/32" > /dev/null
+      - name: Upload and deploy
+        run: |
+          ssh -F "$RUNNER_TEMP/zavliq-ssh/config" zavliq "sudo install -d -o ubuntu -m 755 /opt/zavliq/releases/$GITHUB_SHA"
+          scp -F "$RUNNER_TEMP/zavliq-ssh/config" -r "$RUNNER_TEMP/release/"* "zavliq:/opt/zavliq/releases/$GITHUB_SHA/"
+          ssh -F "$RUNNER_TEMP/zavliq-ssh/config" zavliq "sudo bash /opt/zavliq/releases/$GITHUB_SHA/infra/scripts/deploy-release.sh $GITHUB_SHA"
+      - name: Close temporary access
+        if: always()
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+        run: |
+          if [ -f "$RUNNER_TEMP/runner-cidr" ]; then
+            RUNNER_CIDR=$(cat "$RUNNER_TEMP/runner-cidr")
+            aws lightsail close-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_CIDR" > /dev/null
+          fi
+          rm -rf "$RUNNER_TEMP/zavliq-ssh"

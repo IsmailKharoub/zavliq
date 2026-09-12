@@ -1,0 +1,46 @@
+# Copy into .github/workflows/backups.yml. OIDC role only accesses this deployment.
+name: Off-host encrypted backups
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 2,14 * * *'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: production-host-access
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Prepare temporary SSH access
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+        run: |
+          python3 infra/scripts/prepare-ssh.py --instance "$INSTANCE" --directory "$RUNNER_TEMP/zavliq-ssh"
+          RUNNER_IP=$(curl --fail --silent --show-error https://checkip.amazonaws.com)
+          printf '%s/32' "$RUNNER_IP" > "$RUNNER_TEMP/runner-cidr"
+          aws lightsail open-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_IP/32" > /dev/null
+      - name: Retrieve encrypted backups and upload to private S3
+        env:
+          BUCKET: ${{ vars.BACKUP_BUCKET }}
+        run: |
+          python3 infra/scripts/fetch-backup.py --ssh-config "$RUNNER_TEMP/zavliq-ssh/config" --bucket "$BUCKET" --directory "$RUNNER_TEMP/backups"
+      - name: Close temporary access
+        if: always()
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+        run: |
+          if [ -f "$RUNNER_TEMP/runner-cidr" ]; then
+            RUNNER_CIDR=$(cat "$RUNNER_TEMP/runner-cidr")
+            aws lightsail close-instance-public-ports --instance-name "$INSTANCE" --port-info "fromPort=22,toPort=22,protocol=tcp,cidrs=$RUNNER_CIDR" > /dev/null
+          fi
+          rm -rf "$RUNNER_TEMP/zavliq-ssh" "$RUNNER_TEMP/backups"

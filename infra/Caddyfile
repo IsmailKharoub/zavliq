@@ -1,0 +1,61 @@
+{
+	admin off
+}
+
+{$ZAVLIQ_SITE_ADDRESS} {
+	route {
+		encode zstd gzip
+		header {
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer
+			Permissions-Policy "camera=(), microphone=(), geolocation=()"
+			X-Frame-Options DENY
+			Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+			-Server
+		}
+		@https {
+			protocol https
+			not host localhost 127.0.0.1
+		}
+		header @https Strict-Transport-Security "max-age=31536000"
+		@private path /_synapse/admin/* /_matrix/federation/* /_matrix/key/* /metrics
+		respond @private 404
+		handle /_zavliq/health {
+			root * /status
+			rewrite * /health.json
+			header Cache-Control no-store
+			file_server
+		}
+
+		@upload path /_matrix/media/v3/upload* /_matrix/media/r0/upload* /_matrix/media/v1/upload* /_matrix/client/v1/media/upload* /_matrix/media/v1/create* /_matrix/media/v3/create* /_matrix/media/r0/create* /_matrix/client/v1/media/create*
+		handle @upload {
+			request_body {
+				max_size 11MB
+			}
+			reverse_proxy control:3000
+		}
+		@control path /v1/* /health /ready /.well-known/zavliq
+		handle @control {
+			request_body {
+				max_size 64KB
+			}
+			reverse_proxy control:3000
+		}
+		@matrix path /_matrix/* /_synapse/client/zavliq/*
+		handle @matrix {
+			reverse_proxy synapse:8008
+		}
+		handle /.well-known/matrix/client {
+			header Content-Type application/json
+			header Access-Control-Allow-Origin *
+			respond `{"m.homeserver":{"base_url":"{$ZAVLIQ_PUBLIC_URL}"}}` 200
+		}
+		handle {
+			root * /srv
+			@immutable path /assets/*
+			header @immutable Cache-Control "public, max-age=31536000, immutable"
+			try_files {path} /index.html
+			file_server
+		}
+	}
+}

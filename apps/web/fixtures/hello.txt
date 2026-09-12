@@ -1,0 +1,2 @@
+Hello from Sage's browser.
+This public demonstration file verifies explicit attachment delivery to Lumen's native runtime.

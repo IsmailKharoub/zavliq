@@ -1,0 +1,168 @@
+name: zavliq
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zavliq
+      POSTGRES_DB: synapse
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+    secrets: [postgres_password]
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U zavliq -d synapse"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+    mem_limit: 768m
+    shm_size: 128m
+
+  synapse-config:
+    image: zavliq-synapse:${ZAVLIQ_RELEASE:-development}
+    build:
+      context: ..
+      dockerfile: infra/docker/synapse.Dockerfile
+    entrypoint: [python, /opt/zavliq/configure-synapse.py]
+    user: "0:0"
+    environment:
+      ZAVLIQ_SERVER_NAME: ${ZAVLIQ_SERVER_NAME:?Run init-environment.py first}
+      ZAVLIQ_PUBLIC_URL: ${ZAVLIQ_PUBLIC_URL:?Run init-environment.py first}
+    secrets: [postgres_password, registration_secret, policy_secret, control_secret]
+    volumes:
+      - synapse:/data
+    networks: [backend]
+    logging: *logging
+
+  synapse:
+    image: zavliq-synapse:${ZAVLIQ_RELEASE:-development}
+    restart: unless-stopped
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+      synapse-config:
+        condition: service_completed_successfully
+    volumes:
+      - synapse:/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8008/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    logging: *logging
+    mem_limit: 1536m
+
+  bootstrap:
+    image: zavliq-synapse:${ZAVLIQ_RELEASE:-development}
+    entrypoint: [python, /opt/zavliq/bootstrap-admin.py]
+    user: "0:0"
+    depends_on:
+      synapse:
+        condition: service_healthy
+    secrets: [registration_secret]
+    volumes:
+      - bootstrap:/bootstrap
+    networks: [backend]
+    logging: *logging
+
+  retention:
+    image: zavliq-synapse:${ZAVLIQ_RELEASE:-development}
+    profiles: [maintenance]
+    entrypoint: [python, /opt/zavliq/prune-media.py]
+    user: "0:0"
+    volumes:
+      - synapse:/data:ro
+      - bootstrap:/bootstrap:ro
+    networks: [backend]
+    logging: *logging
+    mem_limit: 128m
+
+  control:
+    image: zavliq-control:${ZAVLIQ_RELEASE:-development}
+    build:
+      context: ..
+      dockerfile: infra/docker/control.Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      SERVER_NAME: ${ZAVLIQ_SERVER_NAME}
+      PUBLIC_HOMESERVER_URL: ${ZAVLIQ_PUBLIC_URL}
+      ALLOWED_ORIGINS: ${ZAVLIQ_PUBLIC_URL}
+      TRUSTED_PROXY_CIDRS: 172.16.0.0/12
+      SYNAPSE_URL: http://synapse:8008
+      CONTROL_DATABASE: /data/control.sqlite
+    secrets: [control_secret]
+    volumes:
+      - control:/data
+      - bootstrap:/bootstrap:ro
+    networks: [backend]
+    depends_on:
+      synapse:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+    mem_limit: 384m
+
+  gateway:
+    image: zavliq-web:${ZAVLIQ_RELEASE:-development}
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      ZAVLIQ_SITE_ADDRESS: ${ZAVLIQ_SITE_ADDRESS}
+      ZAVLIQ_PUBLIC_URL: ${ZAVLIQ_PUBLIC_URL}
+    volumes:
+      - caddy:/data
+      - caddy_config:/config
+    networks: [backend, edge]
+    depends_on:
+      control:
+        condition: service_healthy
+    logging: *logging
+    mem_limit: 192m
+
+networks:
+  backend:
+    internal: true
+  edge:
+
+volumes:
+  postgres:
+  synapse:
+  control:
+  caddy:
+  caddy_config:
+  bootstrap:
+
+secrets:
+  postgres_password:
+    file: ${ZAVLIQ_STATE_DIR:?Run init-environment.py first}/postgres_password
+  registration_secret:
+    file: ${ZAVLIQ_STATE_DIR}/registration_secret
+  policy_secret:
+    file: ${ZAVLIQ_STATE_DIR}/policy_secret
+  control_secret:
+    file: ${ZAVLIQ_STATE_DIR}/control_secret

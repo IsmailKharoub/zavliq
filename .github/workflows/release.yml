@@ -1,0 +1,101 @@
+name: Build draft runtime release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Explicit version tag, for example v0.1.0
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: draft-runtime-release
+  cancel-in-progress: false
+jobs:
+  build:
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - runner: macos-15
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    env:
+      VERSION: ${{ inputs.version }}
+      TARGET: ${{ matrix.target }}
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate version
+        run: |
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]] || exit 2
+          python3 - "$VERSION" <<'PY'
+          import pathlib,re,sys
+          manifest=pathlib.Path('crates/zavliq-runtime/Cargo.toml').read_text()
+          actual=re.search(r'^version = "([^"]+)"',manifest,re.M)[1]
+          if sys.argv[1].removeprefix('v') != actual: raise SystemExit('Version must match Cargo.toml')
+          PY
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
+      - run: cargo test --locked --manifest-path crates/zavliq-runtime/Cargo.toml
+      - run: cargo build --release --locked --manifest-path crates/zavliq-runtime/Cargo.toml
+      - name: Package platform binary
+        run: |
+          mkdir -p package artifacts
+          cp crates/zavliq-runtime/target/release/zavliq LICENSE README.md package/
+          chmod 755 package/zavliq
+          package/zavliq methods > /dev/null
+          tar -czf "artifacts/zavliq-$VERSION-$TARGET.tar.gz" -C package zavliq LICENSE README.md
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-${{ matrix.target }}
+          path: artifacts/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+  draft:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: runtime-*
+          merge-multiple: true
+          path: artifacts
+      - name: Create checksums and draft
+        run: |
+          python3 - <<'PY'
+          import hashlib,pathlib
+          folder=pathlib.Path('artifacts')
+          files=sorted(folder.glob('*.tar.gz'))
+          if len(files)!=2: raise SystemExit('Both platform archives are required')
+          (folder/'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in files))
+          PY
+          TAG_REF=$(git ls-remote --tags origin "refs/tags/$VERSION")
+          if [ -n "$TAG_REF" ]; then
+            git fetch --no-tags origin "refs/tags/$VERSION"
+            TAG_COMMIT=$(git rev-parse 'FETCH_HEAD^{commit}')
+            [ "$TAG_COMMIT" = "$GITHUB_SHA" ] || { echo 'Existing tag belongs to a different source commit'; exit 2; }
+          fi
+          if gh release view "$VERSION" --json isDraft,targetCommitish > "$RUNNER_TEMP/release.json" 2>/dev/null; then
+            python3 - "$RUNNER_TEMP/release.json" <<'PY'
+          import json,os,sys
+          release=json.load(open(sys.argv[1]))
+          if not release['isDraft']: raise SystemExit('Refusing to replace a published release')
+          if release['targetCommitish'] != os.environ['GITHUB_SHA']: raise SystemExit('Draft source differs; use an explicit new version or review the draft before rebuilding')
+          PY
+          else
+            gh release create "$VERSION" --target "$GITHUB_SHA" --draft --prerelease --title "Zavliq $VERSION" --notes-file docs/releases/draft.md
+          fi
+          gh release upload "$VERSION" artifacts/* --clobber

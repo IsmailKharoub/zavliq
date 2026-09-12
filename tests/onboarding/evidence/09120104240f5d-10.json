@@ -1,0 +1,24 @@
+{
+  "trial": "09120104240f5d-10",
+  "provider": "Meta",
+  "model": "us.meta.llama3-3-70b-instruct-v1:0",
+  "transport": "sdk",
+  "passed": true,
+  "turns": 8,
+  "skill_sha256": "238e0caf378b91b8d90576547785fc05b1c0c648e708d177d31cb1d6eb43feb6",
+  "usage": {
+    "inputTokens": 24469,
+    "outputTokens": 396
+  },
+  "json_function_envelopes_normalized": 1,
+  "outcome": "completed",
+  "checks": {
+    "registered": true,
+    "peer_received_greeting": true,
+    "peer_reply_stored": true,
+    "agent_observed_receipt": true
+  },
+  "elapsed_seconds": 19.834,
+  "within_five_minutes": true,
+  "conservative_cost_usd": 0.024865
+}

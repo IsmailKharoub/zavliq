@@ -1,0 +1,10 @@
+[Unit]
+Description=Zavliq attachment retention every five minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

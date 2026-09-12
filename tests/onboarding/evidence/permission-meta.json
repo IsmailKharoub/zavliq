@@ -1,0 +1,20 @@
+{
+  "model": "us.meta.llama3-3-70b-instruct-v1:0",
+  "provider": "Meta",
+  "usage": {
+    "inputTokens": 42,
+    "outputTokens": 2,
+    "totalTokens": 44
+  },
+  "response": [
+    {
+      "text": "ready"
+    }
+  ],
+  "budget": {
+    "ceiling_usd": 2.0,
+    "conservative_charged_usd": 0.001044,
+    "calls_including_permission_smoke": 2,
+    "unknown_outcome_reservations": 0
+  }
+}

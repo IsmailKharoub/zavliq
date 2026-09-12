@@ -1,0 +1,10 @@
+{
+  "model": "amazon.nova-micro-v1:0",
+  "provider": "Amazon",
+  "date_utc": "2026-09-12",
+  "method": "AWS CLI bedrock-runtime converse neutral permission smoke before harness implementation",
+  "prompt": "Reply with exactly the word ready.",
+  "response": "ready",
+  "usage": {"inputTokens": 7, "outputTokens": 2, "totalTokens": 9},
+  "conservative_charge_usd": 0.001
+}

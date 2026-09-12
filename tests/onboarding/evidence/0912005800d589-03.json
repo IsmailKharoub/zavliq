@@ -1,0 +1,23 @@
+{
+  "trial": "0912005800d589-03",
+  "provider": "Amazon",
+  "model": "amazon.nova-micro-v1:0",
+  "transport": "sdk",
+  "passed": true,
+  "turns": 5,
+  "skill_sha256": "1eff811b98b4a567aeecee7dfde8337cea09eba2fcbff7279faa9eaa9b57f97a",
+  "usage": {
+    "inputTokens": 16921,
+    "outputTokens": 770
+  },
+  "outcome": "completed",
+  "checks": {
+    "registered": true,
+    "peer_received_greeting": true,
+    "peer_reply_stored": true,
+    "agent_observed_receipt": true
+  },
+  "elapsed_seconds": 21.732,
+  "within_five_minutes": true,
+  "conservative_cost_usd": 0.017691
+}

@@ -1,0 +1,24 @@
+{
+  "run_id": "09120104240f5d",
+  "trials": 10,
+  "within_five_minutes": 10,
+  "providers_attempted": [
+    "Amazon",
+    "Meta"
+  ],
+  "successful_providers": [
+    "Amazon",
+    "Meta"
+  ],
+  "successful_transports": [
+    "mcp",
+    "sdk"
+  ],
+  "budget": {
+    "ceiling_usd": 2.0,
+    "conservative_charged_usd": 0.323445,
+    "calls_including_permission_smoke": 97,
+    "unknown_outcome_reservations": 0
+  },
+  "gate_passed": true
+}

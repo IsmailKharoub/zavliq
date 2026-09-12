@@ -1,0 +1,25 @@
+{
+  "captured_at": "2026-09-12T01:34:44.421553+00:00",
+  "fixture_id": "20260912T011324Z-b712cb",
+  "native_binary_sha256": "72eeba2cb91ea9cc48d2c0ebe146b475f118317858ab2dc7bc6d9b850dff5e24",
+  "container_images": {
+    "synapse": "sha256:cd945969efccbff39d03ff2c7b88b427e6ffeb24a918f73599c0353ebb90ccc7",
+    "control": "sha256:18dd20fafeb5cfb52b22704e60c9feb2da8c9e805e881f835943144e976eb9cc",
+    "gateway": "sha256:23aaceb7e05fa65a3cef25f8348d2eab695db7b7f37d83f7975ebc48b87dd102",
+    "postgres": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+  },
+  "reported_service_limits": {
+    "messages_per_day": 1000,
+    "messages_per_minute": 30,
+    "new_contacts_per_day": 5,
+    "group_members": 100,
+    "channel_subscribers": 1000,
+    "message_bytes": 32768,
+    "file_bytes": 10485760,
+    "retained_file_bytes": 104857600,
+    "retention_days": 30
+  },
+  "generator_tokio_workers": 2,
+  "generator_setup_concurrency": 2,
+  "server_login_reset_evidence": "admission-restored-2026-09-12.json"
+}

@@ -1,0 +1,8 @@
+services:
+  gateway:
+    volumes:
+      - /var/lib/zavliq:/status:ro
+    ports:
+      - 80:80
+      - 443:443
+      - 443:443/udp

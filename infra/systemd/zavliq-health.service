@@ -1,0 +1,8 @@
+[Unit]
+Description=Zavliq content-free health probe
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/zavliq/operations.env
+ExecStart=/usr/bin/python3 /opt/zavliq/current/infra/scripts/healthcheck.py --origin ${ZAVLIQ_PUBLIC_URL} --backup-directory /var/backups/zavliq --output /var/lib/zavliq/health.json
+TimeoutStartSec=45

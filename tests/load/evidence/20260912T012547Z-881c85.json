@@ -1,0 +1,10 @@
+{
+  "run_id": "20260912T012547Z-881c85",
+  "environment": "local",
+  "status": "failed",
+  "stage": "fixture_setup",
+  "error_code": "ExceptionGroup",
+  "accepted_messages": 0,
+  "observed_messages": 0,
+  "aws_staging_gate_passed": false
+}

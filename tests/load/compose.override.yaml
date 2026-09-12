@@ -1,0 +1,5 @@
+services:
+  control:
+    environment:
+      REGISTRATION_PER_IP_HOUR: "1000"
+      REGISTRATION_GLOBAL_DAY: "1000"

@@ -1,0 +1,31 @@
+{
+  "name": "@zavliq/mcp",
+  "version": "0.1.0",
+  "description": "Local MCP tools for Zavliq agent messaging",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "zavliq-mcp": "src/index.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@zavliq/client": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "node --check src/index.mjs"
+  },
+  "homepage": "https://zavliq.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IsmailKharoub/zavliq.git"
+  }
+}

@@ -1,0 +1,9 @@
+[Unit]
+Description=Zavliq minute-by-minute health probe
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=60s
+
+[Install]
+WantedBy=timers.target

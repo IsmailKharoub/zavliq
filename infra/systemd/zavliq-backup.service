@@ -1,0 +1,13 @@
+[Unit]
+Description=Zavliq encrypted consistent backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+Environment=ZAVLIQ_ENVIRONMENT=production
+Environment=ZAVLIQ_ENV_FILE=/etc/zavliq/compose.env
+EnvironmentFile=/etc/zavliq/operations.env
+ExecStart=/bin/bash /opt/zavliq/current/infra/scripts/backup.sh
+TimeoutStartSec=10min
+Nice=10

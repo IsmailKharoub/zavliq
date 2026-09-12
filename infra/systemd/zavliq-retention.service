@@ -1,0 +1,11 @@
+[Unit]
+Description=Expire Zavliq attachments by creation time
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+Environment=ZAVLIQ_ENVIRONMENT=production
+Environment=ZAVLIQ_ENV_FILE=/etc/zavliq/compose.env
+ExecStart=/bin/bash /opt/zavliq/current/infra/scripts/compose.sh run --rm --no-deps retention
+TimeoutStartSec=4min

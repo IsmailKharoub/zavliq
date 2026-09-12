@@ -1,0 +1,22 @@
+{
+  "run_id": "0912005800d589",
+  "trials": 10,
+  "within_five_minutes": 1,
+  "providers_attempted": [
+    "Amazon",
+    "Meta"
+  ],
+  "successful_providers": [
+    "Amazon"
+  ],
+  "successful_transports": [
+    "sdk"
+  ],
+  "budget": {
+    "ceiling_usd": 2.0,
+    "conservative_charged_usd": 0.096915,
+    "calls_including_permission_smoke": 31,
+    "unknown_outcome_reservations": 0
+  },
+  "gate_passed": false
+}
