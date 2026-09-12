@@ -106,6 +106,7 @@ async def run(args) -> dict:
     startup_lock = asyncio.Lock()
     ledger = (directory / f'events-{identifier}.jsonl').open('a', buffering=1)
     started = None
+    started_at_utc = None
 
     def record(value):
         ledger.write(json.dumps(value) + '\n')
@@ -266,6 +267,8 @@ async def run(args) -> dict:
         observers = [asyncio.create_task(receive(index)) for index in range(args.clients)]
         planned = int(args.duration * args.rate)
         started = time.monotonic()
+        started_at_utc = dt.datetime.now(dt.timezone.utc).isoformat()
+        record({'kind': 'measurement_started', 'at': started, 'utc': started_at_utc})
         print(json.dumps({'state': 'running', 'run_id': identifier, 'environment': target['environment'], 'clients': args.clients, 'planned_messages': planned, 'duration_seconds': args.duration}), flush=True)
         for sequence in range(planned):
             check_receivers(observers)
@@ -300,6 +303,8 @@ async def run(args) -> dict:
         result['generator'] = {'tokio_workers_per_runtime': 2, 'setup_concurrency': 2, 'pair_validation_concurrency': 4, 'process_start_spacing_seconds': .5, 'store_and_sync_warmup_before_timer': True, 'setup_timeout_seconds': 90, 'measurement_rpc_timeout_seconds': 30}
         result['generator']['inbox_mode'] = args.inbox_mode
         result['native_binary_sha256'] = binary_sha256
+        result['measurement_started_at_utc'] = started_at_utc
+        result['measurement_finished_at_utc'] = dt.datetime.now(dt.timezone.utc).isoformat()
         result['rpc_diagnostics'] = {name: metric(values) for name, values in rpc_diagnostics.items()}
         evidence = ROOT / 'tests/load/evidence'
         evidence.mkdir(exist_ok=True)
@@ -309,6 +314,7 @@ async def run(args) -> dict:
     except Exception as error:
         result = {'run_id': identifier, 'environment': target['environment'], 'status': 'failed', 'stage': 'measurement' if started else 'fixture_setup', 'error_code': getattr(error, 'code', type(error).__name__), 'accepted_messages': len(accepted), 'observed_messages': len(observed), 'native_binary_sha256': binary_sha256, 'aws_staging_gate_passed': False}
         result['inbox_mode'] = args.inbox_mode
+        result['measurement_started_at_utc'] = started_at_utc
         if isinstance(error, ReceiverStopped):
             result.update(receiver_index=error.receiver_index, receiver_error_class=error.reason)
         evidence = ROOT / 'tests/load/evidence'

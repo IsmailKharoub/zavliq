@@ -30,3 +30,5 @@ ZAVLIQ_RESTORE_FRESH_ENVIRONMENT=yes \
 6. Measure elapsed restore time and age of the recovered message. Record actual values against the two-hour RTO/24-hour RPO. In a real incident, stop all writes on the failed host, redirect DNS only after verification, and ensure only one network with the original server-name is active.
 
 `restore.sh` refuses unsafe archive members, absent essential files, mismatched Matrix server-name, and targets with existing containers. It restores credential material, PostgreSQL, Synapse signing/config/media/policy data, control SQLite, and the service token. The recovery environment's origin and private host path remain configurable. A rollback after an incompatible schema migration uses this same procedure with the pre-deploy snapshot.
+
+For the final private AWS candidate, [the E2EE restore fixture](e2ee-restore-fixture.md) preserves two original device stores and verifies previously unseen encrypted text, exact JSON and an attachment after a fresh-volume restore. Its two phases use the same local tunnel origin; operations owns the temporary source-to-clone route change.
