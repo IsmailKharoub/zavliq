@@ -210,5 +210,11 @@ class WebsiteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'REGULAR_UNIQUE'):
             web.dist_hashes(data.getvalue())
 
+    def test_buildx_uses_its_validated_context_with_explicit_amd64(self):
+        command = web.build_command(Path('/source'), Path('/source/website.Dockerfile'), 'zavliq-web:reviewed', 'b' * 40, self.base_hash)
+        self.assertEqual(command[:7], ['docker', '--context', 'default', 'buildx', 'build', '--builder', 'default'])
+        self.assertEqual(command[command.index('--platform') + 1], 'linux/amd64')
+        self.assertIn('--pull=false', command)
+
 
 if __name__ == '__main__': unittest.main()

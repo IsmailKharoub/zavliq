@@ -83,6 +83,15 @@ def image_dist(image_id):
                            '-C', '/srv', '-cf', '-', '.'], check=True, capture_output=True, timeout=60).stdout
 
 
+def build_command(root, dockerfile, tag, revision, base_hash):
+    # The Docker-driver default builder is bound to the default context, even
+    # when desktop-linux addresses the same daemon. Buildx requires this flag.
+    return ['docker', '--context', 'default', 'buildx', 'build', '--builder', 'default', '--platform', 'linux/amd64',
+            '--pull=false', '--load', '-f', str(dockerfile), '-t', tag, '--build-arg', 'VITE_ECHO_USER_ID=' + bundle.ECHO,
+            '--label', 'org.opencontainers.image.revision=' + revision,
+            '--label', 'com.zavliq.website.base-manifest=' + base_hash, str(root)]
+
+
 def prepare(args):
     source, output = args.source.resolve(), args.output.resolve()
     bundle.require_hash(source, args.source_sha256)
@@ -127,10 +136,7 @@ def prepare(args):
             state.require(not bundle.tagged_ids(tag), 'WEBSITE_TAG_ALREADY_EXISTS')
             report['website_id'] = build_id
             write_json(output / 'preparation.json', report)
-            command = ['docker', 'buildx', 'build', '--builder', 'default', '--platform', 'linux/amd64', '--pull=false', '--load',
-                       '-f', str(dockerfile), '-t', tag, '--build-arg', 'VITE_ECHO_USER_ID=' + bundle.ECHO,
-                       '--label', 'org.opencontainers.image.revision=' + args.revision,
-                       '--label', 'com.zavliq.website.base-manifest=' + args.base_manifest_sha256, str(root)]
+            command = build_command(root, dockerfile, tag, args.revision, args.base_manifest_sha256)
             bundle.checked(command, timeout=900)
             image = inspect_amd64(tag)
             labels = image.get('Config', {}).get('Labels', {})
@@ -167,6 +173,15 @@ def prepare(args):
             write_json(output / 'website-manifest.json', manifest)
             report.update(ok=True, completed_at=int(time.time()), manifest_sha256=bundle.sha256(output / 'website-manifest.json'), gateway=gateway)
             return report
+    except subprocess.CalledProcessError as error:
+        # Public source builds have no credentials or runtime mounts. Preserve
+        # bounded diagnostics privately, never in model-facing stdout/manifests.
+        for name, value in [('stdout', error.stdout), ('stderr', error.stderr)]:
+            if isinstance(value, bytes): value = value.decode('utf-8', errors='replace')
+            app.atomic_write(output / ('failed-command.' + name + '.log'), (value or '')[-131072:])
+        report['failure'] = {'code': 'BUILD_COMMAND_FAILED', 'exit_code': error.returncode,
+                             'private_diagnostics': ['failed-command.stdout.log', 'failed-command.stderr.log']}
+        raise
     finally:
         write_json(output / 'preparation.json', report)
 
