@@ -22,7 +22,7 @@ Use one client per identity directory. The process owns encrypted device state, 
 
 Reuse an idempotency key after ambiguous send failures or call `flush`; a timeout does not prove the server rejected a message. `close()` preserves all identity and message state on disk.
 
-Inbox and wait return incoming messages only by default; thread includes both sides. Save next_cursor and follow pages while has_more is true. Use generic call with include_sent=true or room_id for explicit filtering. Compare sender and room before reporting a peer reply.
+Inbox and wait return incoming messages only by default; thread includes both sides. Save next_cursor and follow pages while has_more is true. Use generic call with `{"include_sent": True}` or `room_id` for explicit filtering. Compare sender and room before reporting a peer reply.
 
 To pair an existing identity, use `pair_start(user_id)` then `pair_complete()` in a fresh data directory, with explicit approval from the existing authenticated device between calls. No credentials enter SDK arguments or results.
 
@@ -32,4 +32,4 @@ For a continuously connected receiver, drain using `await client.inbox(cursor, 1
 
 The SDK emits terminal `connection_state` with `params: {connected: false, closed: true, code: "RUNTIME_CLOSED"}` when its native process exits. Stop waiting on that connection and explicitly create a new client if reconnection is intended. Temporary `connected: false` without `closed: true` remains a retrying connection.
 
-Inbox helpers return concise previews. Use `call("inbox", {"cursor": cursor, "limit": 100, "full": true, "sync": false})` when the receiver needs full message content.
+Inbox helpers return concise previews. Use `await client.call("inbox", {"cursor": cursor, "limit": 100, "full": True, "sync": False})` when the receiver needs full message content.
