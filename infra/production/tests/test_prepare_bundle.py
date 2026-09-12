@@ -57,7 +57,7 @@ class Fixture:
             labels = {'fixture.service': name}
             if name == 'echo':
                 labels.update({'org.opencontainers.image.revision': REVISION, 'com.zavliq.native.sha256': runtime['binary_sha256']})
-            config = encoded({'architecture': 'amd64', 'os': 'linux', 'config': {'Labels': labels}})
+            config = encoded({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': []}, 'config': {'Labels': labels}})
             image_id = 'sha256:' + hashlib.sha256(config).hexdigest()
             self.configs[image_id] = config
             self.images[name] = {'ref': ref, 'id': image_id}
@@ -137,7 +137,7 @@ class DockerRig:
             self.assert_archived_source(source)
             tag = command[command.index('-t') + 1]
             labels = dict(command[index + 1].split('=', 1) for index, item in enumerate(command) if item == '--label')
-            config = encoded({'architecture': 'amd64', 'os': 'linux', 'config': {'Labels': labels}})
+            config = encoded({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': []}, 'config': {'Labels': labels}})
             image_id = 'sha256:' + hashlib.sha256(config).hexdigest()
             self.fixture.configs[image_id] = config
             self.cached[tag] = image_id
@@ -384,6 +384,216 @@ class ProductionBundleTests(unittest.TestCase):
                     self.assertEqual(stat.S_IMODE((destination / name).stat().st_mode), 0o755)
             self.assertEqual(stat.S_IMODE((destination / 'apps/web/file.txt').stat().st_mode), 0o644)
             self.assertEqual(stat.S_IMODE((destination / 'infra/scripts/start.sh').stat().st_mode), 0o755)
+
+
+
+
+class OciFixture:
+    INDEX = 'application/vnd.oci.image.index.v1+json'
+    MANIFEST = 'application/vnd.oci.image.manifest.v1+json'
+    CONFIG = 'application/vnd.oci.image.config.v1+json'
+    LAYER = 'application/vnd.oci.image.layer.v1.tar+gzip'
+
+    def __init__(self, root, mutation=None, payload_size=0):
+        import gzip
+        self.path = root / 'oci.tar.gz'
+        self.files, self.images, self.nodes = {}, {}, {}
+        self.runtime = {'head_sha': REVISION, 'binary_sha256': 'b' * 64}
+        roots, legacy = [], []
+        for service in ['echo', 'postgres']:
+            ref = service + ':fixture'
+            raw = io.BytesIO()
+            with tarfile.open(fileobj=raw, mode='w') as layer_tar:
+                content = ('synthetic ' + service).encode() + b'x' * payload_size
+                member = tarfile.TarInfo('document.txt'); member.size = len(content)
+                layer_tar.addfile(member, io.BytesIO(content))
+            layer = self.blob(gzip.compress(raw.getvalue(), mtime=0), self.LAYER)
+            labels = {'org.opencontainers.image.revision': REVISION, 'com.zavliq.native.sha256': 'b' * 64}
+            config_data = {'os': 'linux', 'architecture': 'amd64', 'config': {'Labels': labels},
+                'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(raw.getvalue()).hexdigest()]}}
+            if mutation: mutation('config', service, config_data)
+            config = self.blob(encoded(config_data), self.CONFIG)
+            manifest_data = {'schemaVersion': 2, 'mediaType': self.MANIFEST, 'config': config, 'layers': [layer]}
+            if mutation: mutation('manifest', service, manifest_data)
+            leaf = self.blob(encoded(manifest_data), self.MANIFEST)
+            leaf['platform'] = {'os': 'linux', 'architecture': 'amd64'}
+            # Both absent alternate architectures and absent compatibility attestations
+            # mirror a partially populated containerd multi-platform index.
+            missing = {'digest': 'sha256:' + 'c' * 64, 'size': 123, 'mediaType': self.MANIFEST,
+                       'platform': {'os': 'linux', 'architecture': 'arm64'}}
+            attestation = {'digest': 'sha256:' + 'd' * 64, 'size': 123, 'mediaType': self.MANIFEST,
+                          'platform': {'os': 'unknown', 'architecture': 'unknown'},
+                          'annotations': {'vnd.docker.reference.type': 'attestation-manifest'}}
+            index_data = {'schemaVersion': 2, 'mediaType': self.INDEX, 'manifests': [leaf, missing, attestation]}
+            if mutation: mutation('index', service, index_data)
+            index = self.blob(encoded(index_data), self.INDEX)
+            index['annotations'] = {'io.containerd.image.name': 'docker.io/library/' + ref,
+                                    'org.opencontainers.image.ref.name': 'fixture'}
+            roots.append(index)
+            self.images[service] = {'ref': ref, 'id': index['digest']}
+            legacy.append({'Config': self.name(config), 'RepoTags': [ref], 'Layers': [self.name(layer)]})
+            self.nodes[service] = {'index': index, 'leaf': leaf, 'config': config, 'layer': layer}
+        empty = self.blob(b'{}', 'application/vnd.oci.empty.v1+json')
+        empty['data'] = 'e30='
+        statement = self.blob(encoded({'_type': 'https://in-toto.io/Statement/v1', 'predicate': {}}), 'application/vnd.in-toto+json')
+        artifact = {'schemaVersion': 2, 'mediaType': self.MANIFEST,
+                    'artifactType': 'application/vnd.docker.attestation.manifest.v1+json',
+                    'subject': self.nodes['echo']['leaf'], 'config': empty, 'layers': [statement]}
+        if mutation: mutation('artifact', 'echo', artifact)
+        extra = self.blob(encoded(artifact), self.MANIFEST)
+        extra['annotations'] = {'io.containerd.manifest.subject': self.nodes['echo']['leaf']['digest']}
+        roots.append(extra)
+        self.extra = extra
+        self.root = {'schemaVersion': 2, 'mediaType': self.INDEX, 'manifests': roots}
+        self.legacy = legacy
+        self.files['oci-layout'] = encoded({'imageLayoutVersion': '1.0.0'})
+        self.write()
+
+    @staticmethod
+    def name(descriptor): return 'blobs/sha256/' + descriptor['digest'][7:]
+
+    def blob(self, data, media_type):
+        value = {'digest': 'sha256:' + hashlib.sha256(data).hexdigest(), 'size': len(data), 'mediaType': media_type}
+        self.files[self.name(value)] = data
+        return value
+
+    def write(self):
+        self.files['index.json'] = encoded(self.root)
+        self.files['manifest.json'] = encoded(self.legacy)
+        archive(self.path, self.files)
+
+    def verify(self):
+        with patch.object(bundle, 'checked') as docker:
+            bundle.verify_docker_archive(self.path, self.images, self.runtime)
+        docker.assert_not_called()
+
+
+class OciArchiveTests(unittest.TestCase):
+    def test_partial_multiarch_index_ids_compressed_layers_and_untagged_artifact_pass(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            f = OciFixture(Path(temporary))
+            self.assertNotEqual(f.images['echo']['id'], f.nodes['echo']['config']['digest'])
+            self.assertNotEqual(f.nodes['echo']['layer']['digest'], json.loads(f.files[f.name(f.nodes['echo']['config'])])['rootfs']['diff_ids'][0])
+            with patch.object(bundle.tarfile, 'open', wraps=tarfile.open) as opening:
+                f.verify()
+            self.assertEqual(opening.call_count, 1)
+            self.assertEqual(opening.call_args.args[1], 'r|gz')
+
+    def test_every_blob_is_hashed_even_unselected_content(self):
+        for node in ['index', 'leaf', 'config', 'layer', 'unreferenced']:
+            with self.subTest(node=node), tempfile.TemporaryDirectory() as temporary:
+                f = OciFixture(Path(temporary))
+                name = f.name(f.nodes['echo'][node]) if node != 'unreferenced' else f.name(f.blob(b'optional data', 'application/octet-stream'))
+                f.files[name] = f.files[name] + b'changed'
+                f.write()
+                with self.assertRaises(ValueError): f.verify()
+
+    def test_selected_graph_cannot_omit_manifest_config_or_layer(self):
+        for node in ['index', 'leaf', 'config', 'layer']:
+            with self.subTest(node=node), tempfile.TemporaryDirectory() as temporary:
+                f = OciFixture(Path(temporary))
+                del f.files[f.name(f.nodes['echo'][node])]
+                f.write()
+                with self.assertRaises(ValueError): f.verify()
+
+    def test_descriptor_size_architecture_diff_id_and_echo_labels_fail_even_with_rehashed_parents(self):
+        cases = [('manifest', lambda x: x['config'].update(size=x['config']['size'] + 1)),
+                 ('manifest', lambda x: x['layers'][0].update(size=x['layers'][0]['size'] + 1)),
+                 ('manifest', lambda x: x['layers'][0].update(mediaType='application/vnd.oci.image.layer.v1.tar')),
+                 ('config', lambda x: x.update(architecture='arm64')),
+                 ('config', lambda x: x['rootfs'].update(diff_ids=['sha256:' + 'f' * 64])),
+                 ('config', lambda x: x['config']['Labels'].pop('com.zavliq.native.sha256')),
+                 ('config', lambda x: x['config']['Labels'].update({'org.opencontainers.image.revision': 'f' * 40})),
+                 ('index', lambda x: x['manifests'].append(x['manifests'][0])),
+                 ('index', lambda x: x['manifests'][0].update(platform={'os': 'linux', 'architecture': 'arm64'}))]
+        for kind, change in cases:
+            with self.subTest(kind=kind, change=change), tempfile.TemporaryDirectory() as temporary:
+                f = OciFixture(Path(temporary), lambda phase, service, value: change(value) if phase == kind and service == 'echo' else None)
+                with self.assertRaises(ValueError): f.verify()
+
+    def test_tag_and_legacy_mapping_cannot_disagree_or_add_extra_tags(self):
+        for mode in ['root-name', 'root-tag', 'pin-config', 'legacy-config', 'legacy-layer', 'legacy-tag', 'extra-root', 'duplicate-tag']:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:
+                f = OciFixture(Path(temporary))
+                if mode == 'root-name': f.root['manifests'][0]['annotations']['io.containerd.image.name'] = 'docker.io/library/other:fixture'
+                elif mode == 'root-tag': f.root['manifests'][0]['annotations']['org.opencontainers.image.ref.name'] = 'other'
+                elif mode == 'pin-config': f.images['echo']['id'] = f.nodes['echo']['config']['digest']
+                elif mode == 'legacy-config': f.legacy[0]['Config'] = f.legacy[1]['Config']
+                elif mode == 'legacy-layer': f.legacy[0]['Layers'] = f.legacy[1]['Layers']
+                elif mode == 'legacy-tag': f.legacy[0]['RepoTags'] += ['unexpected:tag']
+                elif mode == 'extra-root': f.extra['annotations']['io.containerd.manifest.subject'] = 'sha256:' + 'f' * 64
+                else: f.root['manifests'].append(f.root['manifests'][0])
+                f.write()
+                with self.assertRaises(ValueError): f.verify()
+
+    def test_optional_present_descriptor_has_size_verified(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            f = OciFixture(Path(temporary))
+            f.extra['size'] += 1
+            f.write()
+            with self.assertRaisesRegex(ValueError, 'DESCRIPTOR_BYTES_MISMATCH'): f.verify()
+
+    def test_untagged_root_cannot_masquerade_as_attestation(self):
+        def change(phase, service, value):
+            if phase == 'artifact': value['layers'][0]['mediaType'] = OciFixture.LAYER
+        with tempfile.TemporaryDirectory() as temporary:
+            f = OciFixture(Path(temporary), change)
+            with self.assertRaisesRegex(ValueError, 'ATTESTATION_ROOT_REQUIRED'): f.verify()
+
+    def test_inline_artifact_config_is_verified_even_when_blob_absent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            f = OciFixture(Path(temporary))
+            del f.files['blobs/sha256/' + hashlib.sha256(b'{}').hexdigest()]
+            f.write(); f.verify()
+        def change(phase, service, value):
+            if phase == 'artifact': value['config']['data'] = 'e30g'
+        with tempfile.TemporaryDirectory() as temporary:
+            f = OciFixture(Path(temporary), change)
+            with self.assertRaisesRegex(ValueError, 'INLINE_DATA_MISMATCH'): f.verify()
+
+    def test_duplicate_or_link_archive_member_is_refused(self):
+        for mode in ['duplicate', 'link']:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:
+                f = OciFixture(Path(temporary))
+                with tarfile.open(f.path, 'w:gz') as output:
+                    for name, body in f.files.items():
+                        member = tarfile.TarInfo(name); member.size = len(body)
+                        output.addfile(member, io.BytesIO(body))
+                    member = tarfile.TarInfo('index.json' if mode == 'duplicate' else 'link')
+                    if mode == 'link': member.type, member.linkname = tarfile.SYMTYPE, '/outside'
+                    output.addfile(member)
+                with self.assertRaises(ValueError): f.verify()
+
+    def test_large_gzip_layer_is_streamed_and_diff_hash_covers_all_expanded_chunks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            f = OciFixture(Path(temporary), payload_size=5 * 1024 * 1024)
+            f.verify()
+
+    def test_legacy_archive_checks_actual_layer_diff_ids(self):
+        for changed in [False, True]:
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as temporary:
+                f = OciFixture(Path(temporary))
+                f.files.pop('index.json'); f.files.pop('oci-layout')
+                files = {name: data for name, data in f.files.items() if not name.startswith('blobs/')}
+                images = {}
+                for service, item in zip(['echo', 'postgres'], f.legacy):
+                    node = f.nodes[service]
+                    config_name = node['config']['digest'][7:] + '.json'
+                    config_data = f.files[f.name(node['config'])]
+                    import gzip
+                    layer_name = service + '/layer.tar'
+                    layer_data = gzip.decompress(f.files[f.name(node['layer'])])
+                    files[config_name] = config_data
+                    files[layer_name] = layer_data + (b'changed' if changed else b'')
+                    item['Config'], item['Layers'] = config_name, [layer_name]
+                    images[service] = {'ref': f.images[service]['ref'], 'id': node['config']['digest']}
+                files['manifest.json'] = encoded(f.legacy)
+                archive(f.path, files)
+                if changed:
+                    with self.assertRaisesRegex(ValueError, 'LAYER_DIFF_ID_MISMATCH'):
+                        bundle.verify_docker_archive(f.path, images, f.runtime)
+                else:
+                    bundle.verify_docker_archive(f.path, images, f.runtime)
 
 
 if __name__ == '__main__':

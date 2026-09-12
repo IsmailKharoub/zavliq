@@ -107,36 +107,277 @@ def verify_runtime(path, expected, revision):
 
 
 def verify_docker_archive(path, images, runtime):
-    """Check tags and exact image configuration bytes before docker load can retag anything."""
+    """Verify pinned OCI graphs or classic config IDs in one streaming archive pass.
+
+    OCI descriptors bind compressed blobs, while rootfs.diff_ids bind unpacked
+    layers. Docker 29's containerd store can report an index digest as image ID.
+    https://github.com/opencontainers/image-spec/blob/main/image-layout.md
+    https://docs.docker.com/engine/storage/containerd/
+    """
+    import base64
+    import zlib
+    index_types = {'application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json'}
+    manifest_types = {'application/vnd.oci.image.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v2+json'}
+    config_types = {'application/vnd.oci.image.config.v1+json', 'application/vnd.docker.container.image.v1+json'}
+    layer_types = {'application/vnd.oci.image.layer.v1.tar', 'application/vnd.oci.image.layer.v1.tar+gzip',
+                   'application/vnd.docker.image.rootfs.diff.tar.gzip'}
     expected = {image['ref']: image['id'] for image in images.values()}
-    with tarfile.open(path, 'r:gz') as archive:
-        manifest_member = archive.getmember('manifest.json')
-        if not manifest_member.isfile() or manifest_member.size > 1024 * 1024:
+    if len(expected) != len(images):
+        raise ValueError('EXACT_DOCKER_ARCHIVE_IMAGES_REQUIRED')
+    records, json_bytes, seen, total, cached, inflated_total = {}, {}, set(), 0, 0, 0
+    # Hash every present blob once, including optional non-selected content.
+    # Cache only small JSON documents; never retain/extract layer payloads.
+    with tarfile.open(path, 'r|gz') as archive:
+        for member in archive:
+            name = str(PurePosixPath(member.name))
+            if PurePosixPath(name).is_absolute() or '..' in PurePosixPath(name).parts or not (member.isfile() or member.isdir()):
+                raise ValueError('DOCKER_ARCHIVE_MEMBER_REFUSED')
+            if name in seen:
+                raise ValueError('DUPLICATE_DOCKER_ARCHIVE_MEMBER')
+            seen.add(name)
+            if len(seen) > 10000 or member.size > 8 * 1024 ** 3:
+                raise ValueError('DOCKER_ARCHIVE_SIZE_REFUSED')
+            if member.isdir():
+                if member.size != 0:
+                    raise ValueError('DOCKER_ARCHIVE_MEMBER_REFUSED')
+                continue
+            total += member.size
+            if total > 24 * 1024 ** 3:
+                raise ValueError('DOCKER_ARCHIVE_SIZE_REFUSED')
+            raw_hash, diff_hash, count, expanded = hashlib.sha256(), hashlib.sha256(), 0, 0
+            small = bytearray() if member.size <= 2 * 1024 * 1024 else None
+            decoder, compressed = None, None
+            stream = archive.extractfile(member)
+            while chunk := stream.read(1024 * 1024):
+                if compressed is None:
+                    compressed = chunk.startswith(b'\x1f\x8b')
+                    if compressed:
+                        decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+                raw_hash.update(chunk)
+                count += len(chunk)
+                if small is not None:
+                    small.extend(chunk)
+                if decoder is None:
+                    diff_hash.update(chunk)
+                else:
+                    pending = chunk
+                    while pending:
+                        data = decoder.decompress(pending, 1024 * 1024)
+                        expanded += len(data)
+                        inflated_total += len(data)
+                        if expanded > 8 * 1024 ** 3 or inflated_total > 32 * 1024 ** 3 or decoder.unused_data:
+                            raise ValueError('DOCKER_LAYER_ENCODING_REFUSED')
+                        diff_hash.update(data)
+                        pending = decoder.unconsumed_tail
+            if count != member.size or (decoder is not None and not decoder.eof):
+                raise ValueError('DOCKER_ARCHIVE_BLOB_TRUNCATED')
+            digest = 'sha256:' + raw_hash.hexdigest()
+            if name.startswith('blobs/') and name != 'blobs/sha256/' + raw_hash.hexdigest():
+                raise ValueError('OCI_BLOB_DIGEST_MISMATCH')
+            records[name] = {'digest': digest, 'size': count, 'diff_id': 'sha256:' + diff_hash.hexdigest(), 'gzip': bool(compressed)}
+            if small is not None and small.lstrip().startswith((b'{', b'[')):
+                cached += len(small)
+                if cached > 32 * 1024 * 1024:
+                    raise ValueError('DOCKER_ARCHIVE_METADATA_TOO_LARGE')
+                json_bytes[name] = bytes(small)
+
+    def no_duplicates(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('DUPLICATE_DOCKER_JSON_KEY')
+            result[key] = value
+        return result
+
+    documents = {}
+    def document(name):
+        if name not in documents:
+            if name not in json_bytes:
+                raise ValueError('DOCKER_ARCHIVE_JSON_REQUIRED')
+            documents[name] = json.loads(json_bytes[name], object_pairs_hook=no_duplicates)
+        return documents[name]
+
+    def descriptor(value, required=True):
+        if (not isinstance(value, dict) or not re.fullmatch(r'sha256:[0-9a-f]{64}', value.get('digest', ''))
+                or type(value.get('size')) is not int or value['size'] < 0 or not isinstance(value.get('mediaType'), str)):
+            raise ValueError('OCI_DESCRIPTOR_REFUSED')
+        name = 'blobs/sha256/' + value['digest'][7:]
+        if 'data' in value:
+            inline = value['data']
+            if not isinstance(inline, str) or len(inline) > 3 * 1024 * 1024:
+                raise ValueError('OCI_INLINE_DATA_REFUSED')
+            data = base64.b64decode(inline, validate=True)
+            if len(data) != value['size'] or 'sha256:' + hashlib.sha256(data).hexdigest() != value['digest']:
+                raise ValueError('OCI_INLINE_DATA_MISMATCH')
+            # OCI empty artifact configs may be supplied only as inline data.
+            if name not in records and value['mediaType'] == 'application/vnd.oci.empty.v1+json' and data == b'{}':
+                records[name] = {'digest': value['digest'], 'size': 2, 'diff_id': value['digest'], 'gzip': False}
+                json_bytes[name] = data
+        if name not in records:
+            if required:
+                raise ValueError('OCI_REQUIRED_BLOB_MISSING')
+            return None
+        if records[name]['size'] != value['size'] or records[name]['digest'] != value['digest']:
+            raise ValueError('OCI_DESCRIPTOR_BYTES_MISMATCH')
+        return name
+
+    def config_and_layers(config_name, layer_names, ref):
+        config = document(config_name)
+        if config.get('os') != 'linux' or config.get('architecture') != 'amd64':
+            raise ValueError('LINUX_AMD64_IMAGE_REQUIRED')
+        rootfs = config.get('rootfs', {})
+        if rootfs.get('type') != 'layers' or rootfs.get('diff_ids') != [records[n]['diff_id'] for n in layer_names]:
+            raise ValueError('DOCKER_LAYER_DIFF_ID_MISMATCH')
+        if ref == images['echo']['ref']:
+            labels = (config.get('config') or {}).get('Labels') or {}
+            if labels.get('org.opencontainers.image.revision') != runtime['head_sha'] or labels.get('com.zavliq.native.sha256') != runtime['binary_sha256']:
+                raise ValueError('ECHO_RUNTIME_PROVENANCE_MISMATCH')
+
+    legacy = document('manifest.json')
+    if not isinstance(legacy, list):
+        raise ValueError('DOCKER_ARCHIVE_MANIFEST_REFUSED')
+    tagged = {}
+    for item in legacy:
+        config_name, layers = item.get('Config'), item.get('Layers')
+        if not isinstance(config_name, str) or not isinstance(layers, list) or any(not isinstance(n, str) for n in layers):
             raise ValueError('DOCKER_ARCHIVE_MANIFEST_REFUSED')
-        manifest = json.load(archive.extractfile(manifest_member))
-        found = {}
-        for item in manifest:
-            config_name = PurePosixPath(item['Config'])
-            if config_name.is_absolute() or '..' in config_name.parts:
-                raise ValueError('DOCKER_CONFIG_PATH_REFUSED')
-            member = archive.getmember(str(config_name))
-            if not member.isfile() or member.size > 2 * 1024 * 1024:
-                raise ValueError('DOCKER_CONFIG_REFUSED')
-            data = archive.extractfile(member).read()
-            image_id = 'sha256:' + hashlib.sha256(data).hexdigest()
-            config = json.loads(data)
-            if config.get('os') != 'linux' or config.get('architecture') != 'amd64':
-                raise ValueError('LINUX_AMD64_IMAGE_REQUIRED')
-            for ref in item.get('RepoTags') or []:
-                if ref in found or expected.get(ref) != image_id:
-                    raise ValueError('DOCKER_ARCHIVE_IMAGE_PIN_MISMATCH')
-                found[ref] = image_id
-            if image_id == images['echo']['id']:
-                labels = (config.get('config') or {}).get('Labels') or {}
-                if labels.get('org.opencontainers.image.revision') != runtime['head_sha'] or labels.get('com.zavliq.native.sha256') != runtime['binary_sha256']:
-                    raise ValueError('ECHO_RUNTIME_PROVENANCE_MISMATCH')
-        if found != expected or len(manifest) != len(images):
+        if any(n not in records for n in [config_name, *layers]):
+            raise ValueError('DOCKER_CONFIG_OR_LAYER_MISSING')
+        tags = item.get('RepoTags') or []
+        if not isinstance(tags, list):
+            raise ValueError('DOCKER_ARCHIVE_TAG_REFUSED')
+        for ref in tags:
+            if ref not in expected or ref in tagged:
+                raise ValueError('DOCKER_ARCHIVE_IMAGE_PIN_MISMATCH')
+            tagged[ref] = (config_name, layers)
+    if set(tagged) != set(expected):
+        raise ValueError('EXACT_DOCKER_ARCHIVE_IMAGES_REQUIRED')
+
+    if 'index.json' not in records and 'oci-layout' not in records:
+        if len(legacy) != len(images) or any(not item.get('RepoTags') for item in legacy):
             raise ValueError('EXACT_DOCKER_ARCHIVE_IMAGES_REQUIRED')
+        for ref, (config, layers) in tagged.items():
+            if records[config]['digest'] != expected[ref]:
+                raise ValueError('DOCKER_ARCHIVE_IMAGE_PIN_MISMATCH')
+            config_and_layers(config, layers, ref)
+        return
+    if document('oci-layout') != {'imageLayoutVersion': '1.0.0'}:
+        raise ValueError('OCI_LAYOUT_REFUSED')
+    root = document('index.json')
+    if root.get('schemaVersion') != 2 or root.get('mediaType') not in index_types or not isinstance(root.get('manifests'), list):
+        raise ValueError('OCI_INDEX_REFUSED')
+
+    # Validate every available descriptor edge, even on non-selected platforms.
+    walked = set()
+    def walk(value, required=True, depth=0):
+        if depth > 8:
+            raise ValueError('OCI_GRAPH_DEPTH_REFUSED')
+        name = descriptor(value, required)
+        if name is None or name in walked:
+            return
+        walked.add(name)
+        kind = value['mediaType']
+        if kind not in index_types | manifest_types:
+            return
+        node = document(name)
+        if node.get('schemaVersion') != 2 or node.get('mediaType', kind) != kind:
+            raise ValueError('OCI_DOCUMENT_TYPE_MISMATCH')
+        if kind in index_types:
+            if not isinstance(node.get('manifests'), list):
+                raise ValueError('OCI_INDEX_REFUSED')
+            for child in node['manifests']:
+                walk(child, False, depth + 1)
+        else:
+            descriptor(node.get('config'), False)
+            if not isinstance(node.get('layers'), list):
+                raise ValueError('OCI_MANIFEST_REFUSED')
+            for layer in node['layers']:
+                descriptor(layer, False)
+        if 'subject' in node:
+            descriptor(node['subject'], False)
+
+    def select(value, depth=0):
+        if depth > 8:
+            raise ValueError('OCI_GRAPH_DEPTH_REFUSED')
+        platform = value.get('platform')
+        if platform is not None and (platform.get('os'), platform.get('architecture')) != ('linux', 'amd64'):
+            return []
+        if (value.get('annotations') or {}).get('vnd.docker.reference.type') == 'attestation-manifest':
+            return []
+        name = descriptor(value)
+        node, kind = document(name), value['mediaType']
+        if kind in index_types:
+            return [leaf for child in node['manifests'] for leaf in select(child, depth + 1)]
+        if kind not in manifest_types or node['config']['mediaType'] not in config_types:
+            raise ValueError('OCI_RUNNABLE_MANIFEST_REQUIRED')
+        config_name = descriptor(node['config'])
+        config = document(config_name)
+        if (config.get('os'), config.get('architecture')) != ('linux', 'amd64'):
+            raise ValueError('LINUX_AMD64_IMAGE_REQUIRED')
+        layers = []
+        for layer in node['layers']:
+            if layer['mediaType'] not in layer_types:
+                raise ValueError('OCI_LAYER_MEDIA_TYPE_REFUSED')
+            layer_name = descriptor(layer)
+            if records[layer_name]['gzip'] != layer['mediaType'].endswith('gzip'):
+                raise ValueError('OCI_LAYER_ENCODING_MISMATCH')
+            layers.append(layer_name)
+        return [(value['digest'], config_name, layers)]
+
+    roots, extras, selected = {}, [], set()
+    canonical = {'docker.io/library/' + ref: ref for ref in expected}
+    for value in root['manifests']:
+        walk(value)
+        annotations = value.get('annotations') or {}
+        ref = canonical.get(annotations.get('io.containerd.image.name'))
+        if ref is None:
+            # Extra attestation roots may not carry an image tag/name.
+            if 'io.containerd.image.name' in annotations or 'org.opencontainers.image.ref.name' in annotations:
+                raise ValueError('DOCKER_ARCHIVE_IMAGE_PIN_MISMATCH')
+            extras.append(value)
+            continue
+        if ref in roots or value['digest'] != expected[ref] or annotations.get('org.opencontainers.image.ref.name') != ref.rsplit(':', 1)[1]:
+            raise ValueError('DOCKER_ARCHIVE_IMAGE_PIN_MISMATCH')
+        leaves = select(value)
+        if len(leaves) != 1:
+            raise ValueError('EXACT_AMD64_MANIFEST_REQUIRED')
+        leaf_id, config, layers = leaves[0]
+        if tagged[ref] != (config, layers):
+            raise ValueError('OCI_LEGACY_MAPPING_MISMATCH')
+        config_and_layers(config, layers, ref)
+        roots[ref] = value['digest']
+        selected.add(leaf_id)
+    if roots != expected:
+        raise ValueError('EXACT_DOCKER_ARCHIVE_IMAGES_REQUIRED')
+    for value in extras:
+        subject = (value.get('annotations') or {}).get('io.containerd.manifest.subject')
+        if subject not in selected or value['mediaType'] not in manifest_types:
+            raise ValueError('OCI_UNRELATED_UNTAGGED_ROOT_REFUSED')
+        node = document(descriptor(value))
+        config = document(descriptor(node['config']))
+        artifact = (node.get('artifactType') == 'application/vnd.docker.attestation.manifest.v1+json'
+                    and node.get('subject', {}).get('digest') == subject
+                    and node['config']['mediaType'] == 'application/vnd.oci.empty.v1+json' and config == {})
+        compatible = (node['config']['mediaType'] in config_types
+                      and (config.get('os'), config.get('architecture')) == ('unknown', 'unknown'))
+        if not (artifact or compatible) or not node['layers']:
+            raise ValueError('OCI_ATTESTATION_ROOT_REQUIRED')
+        for layer in node['layers']:
+            if layer['mediaType'] != 'application/vnd.in-toto+json':
+                raise ValueError('OCI_ATTESTATION_ROOT_REQUIRED')
+            descriptor(layer)
+    # Any untagged legacy records must describe an already checked OCI manifest.
+    graph_mappings = set()
+    for name in walked:
+        node = document(name)
+        if isinstance(node, dict) and node.get('mediaType') in manifest_types:
+            config = descriptor(node['config'], False)
+            layer_names = [descriptor(layer, False) for layer in node['layers']]
+            if config is not None and None not in layer_names:
+                graph_mappings.add((config, tuple(layer_names)))
+    for item in legacy:
+        if not item.get('RepoTags') and (item['Config'], tuple(item['Layers'])) not in graph_mappings:
+            raise ValueError('OCI_LEGACY_MAPPING_MISMATCH')
 
 
 def verify_inputs(stage, manifest_hash, runtime_path, bases_path, bases_hash, source):
